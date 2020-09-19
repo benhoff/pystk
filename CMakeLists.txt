@@ -104,6 +104,7 @@ include_directories("${PROJECT_SOURCE_DIR}/lib/zlib")
 
 set(ZLIB_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/lib/zlib" "${PROJECT_BINARY_DIR}/lib/zlib/")
 set(ZLIB_LIBRARY zlibstatic)
+set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 
 if (NOT SERVER_ONLY)
 	set(SKIP_INSTALL_ALL TRUE)
@@ -115,12 +116,12 @@ if (NOT SERVER_ONLY)
 
 	set(PNG_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/lib/libpng/")
 	set(PNG_LIBRARY png_static)
-	
+
 	add_subdirectory("${PROJECT_SOURCE_DIR}/lib/jpeglib")
 	include_directories("${PROJECT_SOURCE_DIR}/lib/jpeglib")
 	set(JPEG_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/lib/jpeglib/")
 	set(JPEG_LIBRARY jpeglib)
-	
+
     add_subdirectory("${PROJECT_SOURCE_DIR}/lib/graphics_utils")
     include_directories("${PROJECT_SOURCE_DIR}/lib/graphics_utils")
 

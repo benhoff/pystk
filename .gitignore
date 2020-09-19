@@ -5,6 +5,9 @@ dependencies*/
 CMakeFiles/
 stk-editor/
 .vscode/
+PySuperTuxKart.egg-info/*
+venv/*
+compile_commands.json
 
 .config/
 supertuxkart-64

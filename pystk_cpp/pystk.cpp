@@ -73,6 +73,7 @@
 #include "karts/kart_properties.hpp"
 #include "karts/kart_properties_manager.hpp"
 #include "modes/world.hpp"
+#include "physics/physics.hpp"
 #include "race/race_manager.hpp"
 #include "scriptengine/property_animator.hpp"
 #include "tracks/arena_graph.hpp"
@@ -89,6 +90,8 @@
 #include "utils/objecttype.h"
 #include "util.hpp"
 #include "buffer.hpp"
+
+#include "BulletCollision/CollisionDispatch/btCollisionWorld.h"
 
 #ifdef RENDERDOC
 #include "renderdoc_app.h"
@@ -159,6 +162,93 @@ public:
     PySTKRenderTarget(std::unique_ptr<RenderTarget>&& rt);
     
 };
+
+Kart::Kart(int number)
+    : m_kart(World::getWorld()->getPlayerKart(number))
+{
+}
+
+void Kart::getSurroundings()
+{
+	int radius = 5;
+	// means that there is a ray for every 10 degrees
+	// This is a sphere, so we're shooting on polar coordinates likely
+	three_array array;
+    const Vec3 cart_xyz = m_kart->getXYZ();
+
+	for (int theta=0; theta <= 360; theta += 10) {
+		for (int omega=0; omega <= 360; omega+= 10) {
+			float x = radius * cos(omega) * sin(theta);
+			float y = radius * sin(omega) * sin(theta);
+			float z = radius * cos(theta);
+
+			Vec3 my_vec;
+
+			my_vec[0] = x + cart_xyz[0];
+			my_vec[1] = x + cart_xyz[1];
+			my_vec[2] = x + cart_xyz[2];
+
+			btCollisionWorld::ClosestRayResultCallback ray_callback(cart_xyz,
+									       	my_vec);
+            Physics::get()->getPhysicsWorld()->ratTest(cart_xyz, my_vec, ray_callback);
+
+            // Physics::get()->getPhysicsWorld()->rayTest(cart_xyz, my_vec, ray_callback);
+
+			if(ray_callback.hasHit()) {
+				float distance = abs(sqrt(pow(cart_xyz[0] - my_vec[0], 2) +
+							  pow(cart_xyz[1] - my_vec[1], 2) +
+							  pow(cart_xyz[2] - my_vec[2], 2)));
+
+				for (int i=0; i<radius; i++) {
+					if (distance < i) {
+						array[theta][omega][i] = 0;
+					}
+					else {
+						btCollisionObject* hit_object = ray_callback.m_collisionObject;
+						const UserPointer *upA = (UserPointer*)(hit_object->getUserPointer());
+
+						// 1) object A is a track
+						// =======================
+						if(upA->is(UserPointer::UP_TRACK))
+						{
+							array[theta][omega][i] = 1;
+						}
+						// 2) object a is a kart
+						// =====================
+						else if(upA->is(UserPointer::UP_KART))
+						{
+							array[theta][omega][i] = 2;
+						}
+						// 3) object is a projectile
+						// =========================
+						else if(upA->is(UserPointer::UP_FLYABLE))
+						{
+							array[theta][omega][i] = 3;
+						}
+						// Object is a physical object
+						// ===========================
+						else if(upA->is(UserPointer::UP_PHYSICAL_OBJECT))
+						{
+							array[theta][omega][i] = 4;
+						}
+						else if (upA->is(UserPointer::UP_ANIMATION))
+						{
+							array[theta][omega][i] = 5;
+						}
+						else
+						    assert("Unknown user pointer");           // 4) Should never happen
+					}
+				}
+
+			}
+			else {
+				for (int i=0; i<radius; i++) {
+					array[theta][omega][i] = 0;
+				}
+			}
+		} // for omega
+	} // for theta
+}
 
 PySTKRenderTarget::PySTKRenderTarget(std::unique_ptr<RenderTarget>&& rt):rt_(std::move(rt)) {
     int W = rt_->getTextureSize().Width, H = rt_->getTextureSize().Height;
