@@ -29,13 +29,41 @@
 #include "karts/abstract_kart.hpp"
 #include "karts/controller/controller.hpp"
 #include "modes/world.hpp"
-
 #include "utils/string_utils.hpp"
 
 #include <typeinfo>
 
-ProjectileManager *projectile_manager=0;
+//=============================================================================================
+ProjectileManager* g_projectile_manager[PT_COUNT];
+//---------------------------------------------------------------------------------------------
+ProjectileManager* ProjectileManager::get()
+{
+    ProcessType type = STKProcess::getType();
+    return g_projectile_manager[type];
+}   // get
 
+//---------------------------------------------------------------------------------------------
+void ProjectileManager::create()
+{
+    ProcessType type = STKProcess::getType();
+    g_projectile_manager[type] = new ProjectileManager();
+}   // create
+
+//---------------------------------------------------------------------------------------------
+void ProjectileManager::destroy()
+{
+    ProcessType type = STKProcess::getType();
+    delete g_projectile_manager[type];
+    g_projectile_manager[type] = NULL;
+}   // destroy
+
+//---------------------------------------------------------------------------------------------
+void ProjectileManager::clear()
+{
+    memset(g_projectile_manager, 0, sizeof(g_projectile_manager));
+}   // clear
+
+//---------------------------------------------------------------------------------------------
 void ProjectileManager::loadData()
 {
 }   // loadData
@@ -156,6 +184,7 @@ bool ProjectileManager::projectileIsClose(const AbstractKart * const kart,
 {
     float r2 = radius * radius;
     for (auto i: m_active_projectiles)
+    for (auto i = m_active_projectiles.begin(); i != m_active_projectiles.end(); i++)
     {
         float dist2 = i->getXYZ().distance2(kart->getXYZ());
         if (dist2 < r2)
@@ -177,7 +206,7 @@ int ProjectileManager::getNearbyProjectileCount(const AbstractKart * const kart,
 {
     float r2 = radius * radius;
     int projectile_count = 0;
-    for (auto i: m_active_projectiles)
+    for (auto i = m_active_projectiles.begin(); i != m_active_projectiles.end(); i++)
     {
         if (i->getType() == type)
         {

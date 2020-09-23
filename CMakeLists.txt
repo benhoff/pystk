@@ -7,6 +7,13 @@ endif()
 # root CMakeLists for the SuperTuxKart project
 project(SuperTuxKart VERSION 1.0)
 set(PROJECT_VERSION "git")
+
+if (MINGW AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  set(LLVM_MINGW TRUE)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -gcodeview")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -gcodeview")
+endif()
+
 add_definitions( -DSUPERTUXKART_VERSION="${PROJECT_VERSION}" )
 
 set(CMAKE_CXX_STANDARD 14)
@@ -26,6 +33,15 @@ option(SERVER_ONLY "Create a server only (i.e. no graphics or sound)" OFF)
 option(CHECK_ASSETS "Check if assets are installed in ../stk-assets" ON)
 option(USE_SYSTEM_ANGELSCRIPT "Use system angelscript instead of built-in angelscript. If you enable this option, make sure to use a compatible version." OFF)
 
+if(USE_ASAN)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+endif()
+if(USE_TSAN)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread -fno-omit-frame-pointer")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=thread -fno-omit-frame-pointer")
+endif()
+
 set(STK_SOURCE_DIR "src")
 set(STK_DATA_DIR "${PROJECT_SOURCE_DIR}/data")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
@@ -37,7 +53,7 @@ set(STK_INSTALL_DATA_DIR "share/supertuxkart" CACHE
    STRING "Install data folder to this directory, absolute or relative to CMAKE_INSTALL_PREFIX")
 
 # Define dependencies path
-if(MSVC)
+if (MSVC OR LLVM_MINGW)
     set(DEPENDENCIES "dependencies-vs")
 elseif(MINGW)
     set(DEPENDENCIES "dependencies-mingw")
@@ -72,7 +88,10 @@ endif()
 
 if(USE_GLES2)
     add_definitions(-DUSE_GLES2)
-    add_definitions(-D_IRR_COMPILE_WITH_OGLES2_ -DNO_IRR_COMPILE_WITH_OPENGL_)
+    if (NOT IOS)
+        add_definitions(-D_IRR_COMPILE_WITH_OGLES2_)
+    endif()
+    add_definitions(-DNO_IRR_COMPILE_WITH_OPENGL_)
 endif()
 
 if(UNIX AND NOT APPLE)
@@ -130,6 +149,9 @@ if (NOT SERVER_ONLY)
 	SET(SQUISH_LIBRARY squish)
 endif()
 
+if (NOT SERVER_ONLY)
+endif()
+
 # Build the irrlicht library
 add_subdirectory("${PROJECT_SOURCE_DIR}/lib/irrlicht")
 include_directories("${PROJECT_SOURCE_DIR}/lib/irrlicht/include")
@@ -152,6 +174,10 @@ set(Angelscript_LIBRARIES angelscript)
 # OpenGL
 find_package(OpenGL REQUIRED)
 include_directories(${OPENGL_INCLUDE_DIR})
+
+if (LLVM_MINGW)
+    SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-pdb=supertuxkart.pdb")
+endif()
 
 if(WIN32)
     # By default windows.h has macros defined for min and max that screw up everything

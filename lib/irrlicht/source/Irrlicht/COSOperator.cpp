@@ -11,7 +11,7 @@
 #else
 #include <string.h>
 #include <unistd.h>
-#if !defined(_IRR_SOLARIS_PLATFORM_) && !defined(__CYGWIN__)
+#if !defined(_IRR_SOLARIS_PLATFORM_) && !defined(__CYGWIN__) && !defined(__HAIKU__)
 #include <sys/param.h>
 #include <sys/types.h>
 #endif
@@ -20,12 +20,6 @@
 #include <cassert>
 
 #include "IrrlichtDevice.h"
-#if defined(_IRR_COMPILE_WITH_X11_DEVICE_)
-#include "CIrrDeviceLinux.h"
-#endif
-#if defined(_IRR_COMPILE_WITH_WAYLAND_DEVICE_)
-#include "CIrrDeviceWayland.h"
-#endif
 #ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
 #include "MacOSX/OSXClipboard.h"
 #endif
@@ -63,6 +57,7 @@ void COSOperator::copyToClipboard(const wchar_t* text) const
 {
 	if (wcslen(text)==0)
 		return;
+#endif
 
 // Windows version
 #if defined(_IRR_XBOX_PLATFORM_)
@@ -88,8 +83,7 @@ void COSOperator::copyToClipboard(const wchar_t* text) const
 
 #endif
 }
-#else
-void COSOperator::copyToClipboard(const c8* text) const
+void irr::COSOperator::copyToClipboard(const c8* text) const
 {
 	if (strlen(text)==0)
 		return;
@@ -119,31 +113,6 @@ void COSOperator::copyToClipboard(const c8* text) const
 
 	OSXCopyToClipboard(text);
 	
-#elif defined(_IRR_COMPILE_WITH_X11_DEVICE_) || defined(_IRR_COMPILE_WITH_WAYLAND_DEVICE_)
-    if (IrrDevice != NULL)
-    {
-#if defined(_IRR_COMPILE_WITH_X11_DEVICE_)
-		if (IrrDevice->getType() == EIDT_X11)
-		{
-			CIrrDeviceLinux* device = dynamic_cast<CIrrDeviceLinux*>(IrrDevice);
-			assert(device);
-			
-			device->copyToClipboard(text);
-		}
-#endif
-#if defined(_IRR_COMPILE_WITH_WAYLAND_DEVICE_)
-		if (IrrDevice->getType() == EIDT_WAYLAND)
-		{
-			CIrrDeviceWayland* device = dynamic_cast<CIrrDeviceWayland*>(IrrDevice);
-			assert(device);
-			
-			device->copyToClipboard(text);
-		}
-#endif
-	}
-#else
-
-#endif
 }
 #endif
 
@@ -172,7 +141,6 @@ const wchar_t* COSOperator::getTextFromClipboard() const
 	return 0;
 #endif
 }
-#else
 const c8* COSOperator::getTextFromClipboard() const
 {
 #if defined(_IRR_XBOX_PLATFORM_)
@@ -194,37 +162,11 @@ const c8* COSOperator::getTextFromClipboard() const
 	
 	
 
-#elif defined(_IRR_COMPILE_WITH_X11_DEVICE_) || defined(_IRR_COMPILE_WITH_WAYLAND_DEVICE_)
-    if (IrrDevice != NULL)
-    {
-#if defined(_IRR_COMPILE_WITH_X11_DEVICE_)
-		if (IrrDevice->getType() == EIDT_X11)
-		{
-			CIrrDeviceLinux* device = dynamic_cast<CIrrDeviceLinux*>(IrrDevice);
-			assert(device);
-			
-			return device->getTextFromClipboard();
-		}
-#endif
-#if defined(_IRR_COMPILE_WITH_WAYLAND_DEVICE_)
-		if (IrrDevice->getType() == EIDT_WAYLAND)
-		{
-			CIrrDeviceWayland* device = dynamic_cast<CIrrDeviceWayland*>(IrrDevice);
-			assert(device);
-			
-			return device->getTextFromClipboard();
-		}
-#endif
-	}
-	return 0;
-
-#else
 
 	return 0;
 #endif
 }
 #endif
-
 
 
 } // end namespace

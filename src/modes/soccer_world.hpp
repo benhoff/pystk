@@ -29,6 +29,7 @@
 #include <string>
 
 class AbstractKart;
+class BallGoalData;
 class Controller;
 class TrackObject;
 class TrackSector;
@@ -52,8 +53,10 @@ public:
         std::string   m_kart;
         /** Player name which scores. */
         core::stringw m_player;
-        /** Country flag of player (used in server only). */
-        core::stringw m_country_flag;
+        /** Country code of player. */
+        std::string m_country_code;
+        /** Handicap of player. */
+        HandicapLevel m_handicap_level;
     };   // ScorerData
 
 private:
@@ -258,7 +261,7 @@ private:
 
     std::vector<KartDistanceMap> m_red_kdm;
     std::vector<KartDistanceMap> m_blue_kdm;
-    BallGoalData m_bgd;
+    std::unique_ptr<BallGoalData> m_bgd;
 
     /** Keep a pointer to the track object of soccer ball */
     TrackObject* m_ball;
@@ -281,6 +284,8 @@ private:
     TrackSector* m_ball_track_sector;
 
     float m_ball_heading;
+
+    std::vector<int> m_team_icon_draw_id;
 
     std::vector<btTransform> m_goal_transforms;
     /** Function to update the location the ball on the polygon map */
@@ -362,14 +367,11 @@ public:
     float getBallHeading() const
                                                     { return m_ball_heading; }
     // ------------------------------------------------------------------------
-    float getBallDiameter() const
-                                               { return m_bgd.getDiameter(); }
+    float getBallDiameter() const;
     // ------------------------------------------------------------------------
-    bool ballApproachingGoal(KartTeam team) const
-                                     { return m_bgd.isApproachingGoal(team); }
+    bool ballApproachingGoal(KartTeam team) const;
     // ------------------------------------------------------------------------
-    Vec3 getBallAimPosition(KartTeam team, bool reverse = false) const
-                               { return m_bgd.getAimPosition(team, reverse); }
+    Vec3 getBallAimPosition(KartTeam team, bool reverse = false) const;
     // ------------------------------------------------------------------------
     bool isCorrectGoal(unsigned int kart_id, bool first_goal) const;
     // ------------------------------------------------------------------------
@@ -392,19 +394,19 @@ public:
         std::pair<uint32_t, uint32_t> progress(
             std::numeric_limits<uint32_t>::max(),
             std::numeric_limits<uint32_t>::max());
-        if (race_manager->hasTimeTarget())
+        if (RaceManager::get()->hasTimeTarget())
         {
             progress.first = (uint32_t)m_time;
         }
         else if (m_red_scorers.size() > m_blue_scorers.size())
         {
             progress.second = (uint32_t)((float)m_red_scorers.size() /
-                (float)race_manager->getMaxGoal() * 100.0f);
+                (float)RaceManager::get()->getMaxGoal() * 100.0f);
         }
         else
         {
             progress.second = (uint32_t)((float)m_blue_scorers.size() /
-                (float)race_manager->getMaxGoal() * 100.0f);
+                (float)RaceManager::get()->getMaxGoal() * 100.0f);
         }
         return progress;
     }
@@ -415,7 +417,8 @@ public:
         return diff > 0 && diff < stk_config->time2Ticks(3.0f);
     }
     // ------------------------------------------------------------------------
-    virtual const uint32_t ballID() const;
+    // ------------------------------------------------------------------------
+    TrackObject* getBall() const { return m_ball; }
 };   // SoccerWorld
 
 

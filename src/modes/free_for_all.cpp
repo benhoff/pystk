@@ -141,9 +141,9 @@ bool FreeForAll::isRaceOver()
         return false;
 
     const int top_id = getKartAtPosition(1)->getWorldKartId();
-    const int hit_capture_limit = race_manager->getHitCaptureLimit();
+    const int hit_capture_limit = RaceManager::get()->getHitCaptureLimit();
 
-    return (m_count_down_reached_zero && race_manager->hasTimeTarget()) ||
+    return (m_count_down_reached_zero && RaceManager::get()->hasTimeTarget()) ||
         (hit_capture_limit != 0 && m_scores[top_id] >= hit_capture_limit);
 }   // isRaceOver
 
@@ -181,7 +181,7 @@ std::pair<uint32_t, uint32_t> FreeForAll::getGameStartedProgress() const
     std::pair<uint32_t, uint32_t> progress(
         std::numeric_limits<uint32_t>::max(),
         std::numeric_limits<uint32_t>::max());
-    if (race_manager->hasTimeTarget())
+    if (RaceManager::get()->hasTimeTarget())
     {
         progress.first = (uint32_t)m_time;
     }
@@ -193,7 +193,7 @@ std::pair<uint32_t, uint32_t> FreeForAll::getGameStartedProgress() const
     if (score >= 0.0f)
     {
         progress.second = (uint32_t)(score /
-            (float)race_manager->getHitCaptureLimit() * 100.0f);
+            (float)RaceManager::get()->getHitCaptureLimit() * 100.0f);
     }
     return progress;
 }   // getGameStartedProgress

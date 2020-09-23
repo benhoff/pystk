@@ -19,6 +19,7 @@
 
 #include "karts/abstract_kart.hpp"
 
+#include "config/user_config.hpp"
 #include "items/attachment.hpp"
 #include "items/powerup.hpp"
 #include "graphics/render_info.hpp"
@@ -26,6 +27,7 @@
 #include "karts/kart_model.hpp"
 #include "karts/kart_properties.hpp"
 #include "karts/kart_properties_manager.hpp"
+#include "network/network_config.hpp"
 #include "physics/physics.hpp"
 #include "utils/objecttype.h"
 #include "utils/log.hpp"
@@ -39,14 +41,14 @@
 AbstractKart::AbstractKart(const std::string& ident,
                            int world_kart_id, int position,
                            const btTransform& init_transform,
-                           PerPlayerDifficulty difficulty,
+                           HandicapLevel handicap,
                            std::shared_ptr<RenderInfo> ri)
              : Moveable()
 {
     if (!ri) ri = std::make_shared<RenderInfo>();
     ri->setObjectId(makeObjectId(OT_KART, world_kart_id));
     m_world_kart_id   = world_kart_id;
-    loadKartProperties(ident, difficulty, ri);
+    loadKartProperties(ident, handicap, ri);
 }   // AbstractKart
 
 // ----------------------------------------------------------------------------
@@ -77,20 +79,36 @@ void AbstractKart::reset()
 
 // ----------------------------------------------------------------------------
 void AbstractKart::loadKartProperties(const std::string& new_ident,
-                                      PerPlayerDifficulty difficulty,
+                                      HandicapLevel handicap,
                                       std::shared_ptr<RenderInfo> ri)
 {
     m_kart_properties.reset(new KartProperties());
     const KartProperties* kp = kart_properties_manager->getKart(new_ident);
-    if (kp == NULL)
+    const KartProperties* kp_addon = NULL;
+    if (NetworkConfig::get()->isNetworking() &&
+        NetworkConfig::get()->useTuxHitboxAddon() && kp && kp->isAddon())
     {
-        Log::warn("Abstract_Kart", "Unknown kart %s, fallback to tux",
-            new_ident.c_str());
+        // For addon kart in network we use the same hitbox (tux) so anyone
+        // can use any addon karts with different graphical kart model
+        if (!UserConfigParams::m_addon_tux_online)
+            kp_addon = kp;
         kp = kart_properties_manager->getKart(std::string("tux"));
     }
-    m_kart_properties->copyForPlayer(kp, difficulty);
+    if (kp == NULL)
+    {
+        if (!NetworkConfig::get()->isNetworking() ||
+            !NetworkConfig::get()->useTuxHitboxAddon())
+        {
+            Log::warn("Abstract_Kart", "Unknown kart %s, fallback to tux",
+                new_ident.c_str());
+        }
+        kp = kart_properties_manager->getKart(std::string("tux"));
+    }
+    m_kart_properties->copyForPlayer(kp, handicap);
+    if (kp_addon)
+        m_kart_properties->adjustForOnlineAddonKart(kp_addon);
     m_name = m_kart_properties->getName();
-    m_difficulty = difficulty;
+    m_handicap = handicap;
     m_kart_animation  = NULL;
     assert(m_kart_properties);
 
@@ -101,25 +119,28 @@ void AbstractKart::loadKartProperties(const std::string& new_ident,
     // released when the kart is deleted, but since the original
     // kart_model is stored in the kart_properties all the time,
     // there is no risk of a mesh being deleted too early.
-    m_kart_model.reset(m_kart_properties->getKartModelCopy(ri));
-    m_kart_width  = m_kart_model->getWidth();
-    m_kart_height = m_kart_model->getHeight();
-    m_kart_length = m_kart_model->getLength();
+    if (kp_addon)
+        m_kart_model.reset(kp_addon->getKartModelCopy(ri));
+    else
+        m_kart_model.reset(m_kart_properties->getKartModelCopy(ri));
+    m_kart_width  = kp->getMasterKartModel().getWidth();
+    m_kart_height = kp->getMasterKartModel().getHeight();
+    m_kart_length = kp->getMasterKartModel().getLength();
     m_kart_highest_point = m_kart_model->getHighestPoint();
     m_wheel_graphics_position = m_kart_model->getWheelsGraphicsPosition();
 }   // loadKartProperties
 
 // ----------------------------------------------------------------------------
 void AbstractKart::changeKart(const std::string& new_ident,
-                              PerPlayerDifficulty difficulty,
+                              HandicapLevel handicap,
                               std::shared_ptr<RenderInfo> ri)
 {
     // Reset previous kart (including delete old animation above)
     reset();
     // Remove kart body
-    Physics::getInstance()->removeKart(this);
+    Physics::get()->removeKart(this);
     ri->setObjectId(makeObjectId(OT_KART, getWorldKartId()));
-    loadKartProperties(new_ident, difficulty, ri);
+    loadKartProperties(new_ident, handicap, ri);
 }   // changeKart
 
 // ----------------------------------------------------------------------------

@@ -32,6 +32,7 @@
 #include "tracks/drive_graph.hpp"
 #include "tracks/drive_node.hpp"
 #include "tracks/track.hpp"
+#include "utils/stk_process.hpp"
 
 #include "utils/log.hpp" //TODO: remove after debugging is done
 
@@ -49,8 +50,6 @@ float RubberBall::m_st_min_speed_offset;
 float RubberBall::m_st_max_speed_offset;
 float RubberBall::m_st_min_offset_distance;
 float RubberBall::m_st_max_offset_distance;
-int   RubberBall::m_next_id = 0;
-
 
 // Debug only, so that we can get a feel on how well balls are aiming etc.
 #undef PRINT_BALL_REMOVE_INFO
@@ -62,8 +61,8 @@ RubberBall::RubberBall(AbstractKart *kart)
     // For debugging purpose: pre-fix each debugging line with the id of
     // the ball so that it's easy to collect all debug output for one
     // particular ball only.
-    m_next_id++;
-    m_id = m_next_id;
+    static int next_id[PT_COUNT] = {};
+    m_id = next_id[STKProcess::getType()]++;
 
     m_target = NULL;
 }   // RubberBall
@@ -72,7 +71,7 @@ RubberBall::RubberBall(AbstractKart *kart)
 void RubberBall::onFireFlyable()
 {
     Flyable::onFireFlyable();
-    CheckManager::get()->addFlyableToCannons(this);
+    Track::getCurrentTrack()->getCheckManager()->addFlyableToCannons(this);
     // Don't let Flyable update the terrain information, since this object
     // has to do it earlier than that.
     setDoTerrainInfo(false);
@@ -122,7 +121,7 @@ void RubberBall::onFireFlyable()
  */
 RubberBall::~RubberBall()
 {
-    CheckManager::get()->removeFlyableFromCannons(this);
+    Track::getCurrentTrack()->getCheckManager()->removeFlyableFromCannons(this);
 }   // ~RubberBall
 
 // ----------------------------------------------------------------------------

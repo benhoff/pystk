@@ -42,7 +42,7 @@ void EasterEggHunt::init()
     m_display_rank = false;
 
     // check for possible problems if AI karts were incorrectly added
-    if(getNumKarts() > race_manager->getNumPlayers())
+    if((getNumKarts()) > RaceManager::get()->getNumPlayers())
     {
         Log::fatal("EasterEggHunt]", "No AI exists for this game mode");
     }
@@ -79,12 +79,12 @@ void EasterEggHunt::readData(const std::string &filename)
 
     // Search for the most relevant set of egg
     const XMLNode *data = NULL;
-    RaceManager::Difficulty difficulty     = race_manager->getDifficulty();
+    RaceManager::Difficulty difficulty     = RaceManager::get()->getDifficulty();
     RaceManager::Difficulty act_difficulty = RaceManager::DIFFICULTY_COUNT;
 
     for(int i=RaceManager::DIFFICULTY_FIRST; i<=RaceManager::DIFFICULTY_LAST; i++)
     {
-        std::string diff_name = race_manager->getDifficultyAsString((RaceManager::Difficulty)i);
+        std::string diff_name = RaceManager::get()->getDifficultyAsString((RaceManager::Difficulty)i);
         const XMLNode * cur_data = easter->getNode(diff_name);
         if (cur_data)
         {
@@ -110,7 +110,7 @@ void EasterEggHunt::readData(const std::string &filename)
         {
             Log::warn("[EasterEggHunt]", "Unknown node '%s' in easter egg level '%s' - ignored.",
                    egg->getName().c_str(),
-                   race_manager->getDifficultyAsString(act_difficulty).c_str());
+                   RaceManager::get()->getDifficultyAsString(act_difficulty).c_str());
             continue;
         }
         Track::getCurrentTrack()->itemCommand(egg);

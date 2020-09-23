@@ -40,6 +40,23 @@ namespace Scripting
 
     namespace GUI
     {
+        enum RaceGUIType
+        {
+            RGT_KEYBOARD_GAMEPAD = 0,
+            RGT_STEERING_WHEEL = 1,
+            RGT_ACCELEROMETER = 2,
+            RGT_GYROSCOPE = 3,
+        };
+
+        enum MsgType
+        {
+
+            MSG_FRIEND = 0,
+            MSG_ACHIEVEMENT = 1,
+            MSG_GENERIC = 2,
+            MSG_ERROR = 3
+        };
+
         /** \addtogroup Scripting
         * @{
         */
@@ -56,6 +73,62 @@ namespace Scripting
         /** Show the specified message in a popup */
         void displayModalMessage(std::string* input)
         {
+        }
+
+        /** Display a Message using MessageQueue (enum GUI::MsgType)*/
+        void displayMessage(std::string* input, int Enum_value)
+        {
+            irr::core::stringw msg = StringUtils::utf8ToWide(*input);
+            MsgType msg_type = (MsgType)Enum_value;
+            MessageQueue::MessageType type;
+            switch (msg_type)
+            {
+                case MSG_ERROR:
+                    type = MessageQueue::MT_ERROR;
+                    break;
+                case MSG_FRIEND:
+                    type = MessageQueue::MT_FRIEND;
+                    break;
+                case MSG_ACHIEVEMENT:
+                    type = MessageQueue::MT_ACHIEVEMENT;
+                    break;
+                default:
+                    type = MessageQueue::MT_GENERIC;
+                    break;
+            }
+            MessageQueue::add(type, msg);
+        }
+
+        /** Displays an static Message. (enum GUI::MsgType)
+         *  This Message has to be discarded by discardStaticMessage() manually.
+         *  Otherwise it can be overridden.
+         */
+        void displayStaticMessage(std::string* input, int Enum_value)
+        {
+            irr::core::stringw msg = StringUtils::utf8ToWide(*input);
+            MsgType msg_type = (MsgType)Enum_value;
+            MessageQueue::MessageType type;
+            switch (msg_type)
+            {
+                case MSG_ERROR:
+                    type = MessageQueue::MT_ERROR;
+                    break;
+                case MSG_FRIEND:
+                    type = MessageQueue::MT_FRIEND;
+                    break;
+                case MSG_ACHIEVEMENT:
+                    type = MessageQueue::MT_ACHIEVEMENT;
+                    break;
+                default:
+                    type = MessageQueue::MT_GENERIC;
+                    break;
+            }
+            MessageQueue::addStatic(type, msg);
+        }
+
+        void discardStaticMessage()
+        {
+            MessageQueue::discardStatic();
         }
 
         void clearOverlayMessages()
@@ -99,6 +172,31 @@ namespace Scripting
         // documented function whose name is exposed in angelscript (these proxies exist so that
         // angelscript can properly resolve overloads, but doxygen can still generate the right docs
         /** \cond DOXYGEN_IGNORE */
+        void proxy_displayMessage(std::string* msgString)
+        {
+            return displayMessage(msgString, MSG_GENERIC);
+        }
+
+        void proxy_displayMessageAndInsertValues1(std::string* msgString, int msgType)
+        {
+            return displayMessage(msgString, msgType);
+        }
+
+        void proxy_displayStaticMessage(std::string* msgString)
+        {
+            return displayStaticMessage(msgString, MSG_GENERIC);
+        }
+
+        void proxy_displayStaticMessageAndInsertValues1(std::string* msgString, int msgType)
+        {
+            return displayStaticMessage(msgString, msgType);
+        }
+
+        void proxy_discardStaticMessage()
+        {
+            return discardStaticMessage();
+        }
+
         std::string proxy_translate(std::string* formatString)
         {
             return translate(formatString);
@@ -119,6 +217,20 @@ namespace Scripting
         {
             return translate(formatString, arg1, arg2, arg3);
         }
+
+        RaceGUIType getRaceGUIType()
+        {
+            if (UserConfigParams::m_multitouch_draw_gui)
+            {
+                if (UserConfigParams::m_multitouch_controls == 1)
+                    return RGT_STEERING_WHEEL;
+                else if (UserConfigParams::m_multitouch_controls == 2)
+                    return RGT_ACCELEROMETER;
+                else if (UserConfigParams::m_multitouch_controls == 3)
+                    return RGT_GYROSCOPE;
+            }
+            return RGT_KEYBOARD_GAMEPAD;
+        }
         /** \endcond */
         
         void registerScriptFunctions(asIScriptEngine *engine)
@@ -128,9 +240,31 @@ namespace Scripting
             bool mp = strstr(asGetLibraryOptions(), "AS_MAX_PORTABILITY");
             asDWORD call_conv = mp ? asCALL_GENERIC : asCALL_CDECL;
             int r; // of type asERetCodes
-            
-            r = engine->RegisterGlobalFunction("void displayModalMessage(const string &in)", 
-                                               mp ? WRAP_FN(displayModalMessage) : asFUNCTION(displayModalMessage), 
+
+            r = engine->RegisterGlobalFunction("void displayMessage(const string &in)",
+                                               mp ? WRAP_FN(proxy_displayMessage) : asFUNCTION(proxy_displayMessage),
+                                               call_conv); assert(r >= 0);
+
+            r = engine->RegisterGlobalFunction("void displayMessage(const string &in, int MessageType)",
+                                               mp ? WRAP_FN(proxy_displayMessageAndInsertValues1)
+                                                  : asFUNCTION(proxy_displayMessageAndInsertValues1),
+                                               call_conv); assert(r >= 0);
+
+            r = engine->RegisterGlobalFunction("void displayStaticMessage(const string &in)",
+                                               mp ? WRAP_FN(proxy_displayStaticMessage) : asFUNCTION(proxy_displayStaticMessage),
+                                               call_conv); assert(r >= 0);
+
+            r = engine->RegisterGlobalFunction("void displayStaticMessage(const string &in, int MessageType)",
+                                               mp ? WRAP_FN(proxy_displayStaticMessageAndInsertValues1)
+                                                  : asFUNCTION(proxy_displayStaticMessageAndInsertValues1),
+                                               call_conv); assert(r >= 0);
+
+            r = engine->RegisterGlobalFunction("void discardStaticMessage()",
+                                               mp ? WRAP_FN(discardStaticMessage) : asFUNCTION(discardStaticMessage),
+                                               call_conv); assert(r >= 0);
+
+            r = engine->RegisterGlobalFunction("void displayModalMessage(const string &in)",
+                                               mp ? WRAP_FN(displayModalMessage) : asFUNCTION(displayModalMessage),
                                                call_conv); assert(r >= 0);
                                                
             r = engine->RegisterGlobalFunction("void displayOverlayMessage(const string &in)", 
@@ -140,7 +274,11 @@ namespace Scripting
             r = engine->RegisterGlobalFunction("void clearOverlayMessages()", 
                                                mp ? WRAP_FN(clearOverlayMessages) : asFUNCTION(clearOverlayMessages), 
                                                call_conv); assert(r >= 0);
-                                               
+
+            r = engine->RegisterGlobalFunction("RaceGUIType getRaceGUIType()",
+                                               mp ? WRAP_FN(getRaceGUIType) : asFUNCTION(getRaceGUIType),
+                                               call_conv); assert(r >= 0);
+
             r = engine->RegisterGlobalFunction("string getKeyBinding(int input)", 
                                                mp ? WRAP_FN(getKeyBinding) : asFUNCTION(getKeyBinding), 
                                                call_conv); assert(r >= 0);

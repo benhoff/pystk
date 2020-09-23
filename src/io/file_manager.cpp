@@ -22,9 +22,12 @@
 
 #include "graphics/irr_driver.hpp"
 #include "graphics/material_manager.hpp"
+#include "guiengine/engine.hpp"
+#include "guiengine/skin.hpp"
 #include "karts/kart_properties_manager.hpp"
 #include "tracks/track_manager.hpp"
 #include "utils/command_line.hpp"
+#include "utils/extract_mobile_assets.hpp"
 #include "utils/file_utils.hpp"
 #include "utils/log.hpp"
 #include "utils/string_utils.hpp"
@@ -60,7 +63,7 @@ namespace irr {
 #  include <direct.h>
 #  include <windows.h>
 #  include <stdio.h>
-#  if !defined(__CYGWIN__ ) && !defined(__MINGW32__)
+#  if !defined(__MINGW32__)
      /*Needed by the remove directory function */
 #    define S_ISDIR(mode)  (((mode) & S_IFMT) == S_IFDIR)
 #    define S_ISREG(mode)  (((mode) & S_IFMT) == S_IFREG)
@@ -225,15 +228,13 @@ FileManager::FileManager()
 
     std::string assets_dir;
 #ifdef MOBILE_STK
-    // Check if the bundled data includes stk-assets, if not download it later
-    // Check only 1 entry for now (karts)
-    if (!fileExists(root_dir + "/karts"))
-    {
-        assets_dir = getenv("HOME");
+    m_stk_assets_download_dir = getenv("HOME");
 #ifdef IOS_STK
-        assets_dir += "/Library/Application Support/SuperTuxKart/stk-assets";
+    m_stk_assets_download_dir += "/Library/Application Support/SuperTuxKart/stk-assets/";
 #elif defined (ANDROID)
-        assets_dir += "/stk-assets";
+    m_stk_assets_download_dir += "/stk-assets/";
+#else
+#error You must set m_stk_assets_download_dir to appropriate place for your platform
 #endif
         m_stk_assets_download_dir = assets_dir;
         // Those will be filled with real data later
@@ -278,10 +279,37 @@ FileManager::FileManager()
 }   // FileManager
 
 // ----------------------------------------------------------------------------
+/** Reset subdirectories to initial state, for example after download assets
+ */
+void FileManager::resetSubdir()
+{
+    m_subdir_name.clear();
+    m_subdir_name.resize(ASSET_COUNT);
+    m_subdir_name[CHALLENGE  ] = "challenges";
+    m_subdir_name[GFX        ] = "gfx";
+    m_subdir_name[GRANDPRIX  ] = "grandprix";
+    m_subdir_name[GUI_ICON   ] = "gui/icons";
+    m_subdir_name[GUI_SCREEN ] = "gui/screens";
+    m_subdir_name[GUI_DIALOG ] = "gui/dialogs";
+    m_subdir_name[LIBRARY    ] = "library";
+    m_subdir_name[MODEL      ] = "models";
+    m_subdir_name[MUSIC      ] = "music";
+    m_subdir_name[REPLAY     ] = "replay";
+    m_subdir_name[SCRIPT     ] = "tracks";
+    m_subdir_name[SFX        ] = "sfx";
+    m_subdir_name[SKIN       ] = "skins";
+    m_subdir_name[SHADER     ] = "shaders";
+    m_subdir_name[TEXTURE    ] = "textures";
+    m_subdir_name[TTF        ] = "ttf";
+    m_subdir_name[TRANSLATION] = "po";
+}   // resetSubdir
+
+// ----------------------------------------------------------------------------
 /** Detects where the assets are stored.
  */
 void FileManager::discoverPaths()
 {
+    resetSubdir();
     // We can't use _() here, since translations will only be initalised
     // after the filemanager (to get the path to the tranlsations from it)
     for(unsigned int i=0; i<m_root_dirs.size(); i++)
@@ -294,11 +322,55 @@ void FileManager::discoverPaths()
     Log::info("[FileManager]", "User-defined grand prix will be stored in '%s'.",
                m_gp_dir.c_str());
 
+    // Reset for re-downloading assets if needed
+    TrackManager::removeTrackSearchDirs();
+    KartPropertiesManager::removeKartSearchDirs();
+
     /** Now search for the path to all needed subdirectories. */
     // ==========================================================
     // This must be done here since otherwise translations will not be found.
     std::vector<bool> dir_found;
     dir_found.resize(ASSET_COUNT, false);
+#ifdef MOBILE_STK
+    assert(!m_root_dirs.empty());
+    for (unsigned j = ASSET_MIN; j <= BUILTIN_ASSETS; j++)
+    {
+        if (!dir_found[j] && fileExists(m_root_dirs[0] + m_subdir_name[j]))
+        {
+            dir_found[j] = true;
+            m_subdir_name[j] = m_root_dirs[0] + m_subdir_name[j] + "/";
+        }
+    }
+
+    bool has_full_assets = ExtractMobileAssets::hasFullAssets();
+    // Clear previous assets version to free space
+    if (!has_full_assets && fileExists(m_stk_assets_download_dir))
+        removeDirectory(m_stk_assets_download_dir);
+
+    // Use stk-assets-full for karts, tracks, textures..., otherwise in data/
+    std::string assets_root = has_full_assets ?
+        m_stk_assets_download_dir : m_root_dirs[0];
+    for (unsigned j = LIBRARY; j <= ASSET_MAX; j++)
+    {
+        if (!dir_found[j] && fileExists(assets_root + m_subdir_name[j]))
+        {
+            dir_found[j] = true;
+            m_subdir_name[j] = assets_root + m_subdir_name[j] + "/";
+        }
+    }
+    if (fileExists(assets_root + "tracks/"))
+        TrackManager::addTrackSearchDir(assets_root + "tracks/");
+    if (fileExists(assets_root + "karts/"))
+        KartPropertiesManager::addKartSearchDir(assets_root + "karts/");
+
+    if (UserConfigParams::m_artist_debug_mode)
+    {
+        if (fileExists(assets_root + "wip-tracks/"))
+            TrackManager::addTrackSearchDir(assets_root + "wip-tracks/");
+        if (fileExists(assets_root + "wip-karts/"))
+            KartPropertiesManager::addKartSearchDir(assets_root + "wip-karts/");
+    }
+#else
     for(unsigned int i=0; i<m_root_dirs.size(); i++)
     {
         if(fileExists(m_root_dirs[i]+"tracks/"))
@@ -315,6 +387,7 @@ void FileManager::discoverPaths()
             }   // !dir_found && file_exist
         }   // for j=ASSET_MIN; j<=ASSET_MAX
     }   // for i<m_root_dirs
+#endif
 
     bool was_error = false;
     for(unsigned int i=ASSET_MIN; i<=ASSET_MAX; i++)
@@ -345,49 +418,12 @@ void FileManager::init()
     addAssetsSearchPath();
     m_cert_bundle_location = m_file_system->getAbsolutePath(
         getAsset("cacert.pem").c_str()).c_str();
-}   // init
 
-//-----------------------------------------------------------------------------
-void FileManager::addAssetsSearchPath()
-{
-    // Note that we can't push the texture search path in the constructor
-    // since this also adds a file archive to the file system - and
-    // m_file_system is deleted (in irr_driver)
-    pushTextureSearchPath(m_subdir_name[TEXTURE], "textures");
-    if (fileExists(m_subdir_name[TEXTURE]+"deprecated/"))
-        pushTextureSearchPath(m_subdir_name[TEXTURE]+"deprecated/", "deprecatedtex");
-
-    pushTextureSearchPath(m_subdir_name[GUI_ICON], "gui/icons");
-
-    pushModelSearchPath  (m_subdir_name[MODEL]);
-    pushMusicSearchPath  (m_subdir_name[MUSIC]);
-
-    // Add more paths from the STK_MUSIC_PATH environment variable
-    if(getenv("SUPERTUXKART_MUSIC_PATH")!=NULL)
-    {
-        std::string path=getenv("SUPERTUXKART_MUSIC_PATH");
-        std::vector<std::string> dirs = StringUtils::splitPath(path);
-        for(int i=0;i<(int)dirs.size(); i++)
-            pushMusicSearchPath(dirs[i]);
-    }
-}   // addAssetsSearchPath
-
-//-----------------------------------------------------------------------------
-void FileManager::reinitAfterDownloadAssets()
-{
-    m_file_system->removeAllFileArchives();
-    m_texture_search_path.clear();
-    m_model_search_path.clear();
-    m_music_search_path.clear();
-    addAssetsSearchPath();
-}   // reinitAfterDownloadAssets
-
-//-----------------------------------------------------------------------------
-FileManager::~FileManager()
-{
     // Clean up left-over files in addons/tmp that are older than 24h
     // ==============================================================
     // (The 24h delay is useful when debugging a problem with a zip file)
+    // We do when starting STK because for mobile STK destructor of file
+    // manager may never be called if only home button is pressed
     std::set<std::string> allfiles;
     std::string tmp=getAddonsFile("tmp");
     listFiles(allfiles, tmp);
@@ -423,7 +459,52 @@ FileManager::~FileManager()
         removeFile(full_path);
 
     }   // for i in all files in tmp
+}   // init
 
+//-----------------------------------------------------------------------------
+void FileManager::addAssetsSearchPath()
+{
+    // Note that we can't push the texture search path in the constructor
+    // since this also adds a file archive to the file system - and
+    // m_file_system is deleted (in irr_driver)
+    pushTextureSearchPath(m_subdir_name[TEXTURE], "textures");
+    if (fileExists(m_subdir_name[TEXTURE]+"deprecated/"))
+        pushTextureSearchPath(m_subdir_name[TEXTURE]+"deprecated/", "deprecatedtex");
+
+    pushTextureSearchPath(m_subdir_name[GUI_ICON], "gui/icons");
+
+    pushModelSearchPath  (m_subdir_name[MODEL]);
+    pushMusicSearchPath  (m_subdir_name[MUSIC]);
+
+    // Add more paths from the STK_MUSIC_PATH environment variable
+    if(getenv("SUPERTUXKART_MUSIC_PATH")!=NULL)
+    {
+        std::string path=getenv("SUPERTUXKART_MUSIC_PATH");
+        std::vector<std::string> dirs = StringUtils::splitPath(path);
+        for(int i=0;i<(int)dirs.size(); i++)
+            pushMusicSearchPath(dirs[i]);
+    }
+}   // addAssetsSearchPath
+
+//-----------------------------------------------------------------------------
+void FileManager::reinitAfterDownloadAssets()
+{
+    m_file_system->removeAllFileArchives();
+    m_texture_search_path.clear();
+    m_model_search_path.clear();
+    m_music_search_path.clear();
+    discoverPaths();
+    addAssetsSearchPath();
+    // Add back addons search path
+    KartPropertiesManager::addKartSearchDir(
+                 file_manager->getAddonsFile("karts/"));
+    track_manager->addTrackSearchDir(
+                 file_manager->getAddonsFile("tracks/"));
+}   // reinitAfterDownloadAssets
+
+//-----------------------------------------------------------------------------
+FileManager::~FileManager()
+{
     // Clean up rest of file manager
     // =============================
     popMusicSearchPath();
@@ -693,7 +774,20 @@ std::string FileManager::getAssetChecked(FileManager::AssetType type,
 std::string FileManager::getAsset(FileManager::AssetType type,
                                   const std::string &name) const
 {
-    return m_subdir_name[type]+name;
+    if (type == GUI_ICON && GUIEngine::getSkin()->hasIconTheme())
+    {
+        // remove the extension to check both .svg and .png
+        const std::string test_path = StringUtils::removeExtension
+            (GUIEngine::getSkin()->getDataPath() + "data/gui/icons/" + name);
+        // first check if there is an SVG version
+        if (fileExists(test_path + ".svg"))
+            return test_path + ".svg";
+        else if (fileExists(test_path + ".png"))
+            return test_path + ".png";
+        else
+            return m_subdir_name[type] + name;
+    }
+    return m_subdir_name[type] + name;
 }   // getAsset
 
 //-----------------------------------------------------------------------------
@@ -796,10 +890,10 @@ bool FileManager::checkAndCreateDirectory(const std::string &path)
     Log::info("FileManager", "Creating directory '%s'.", path.c_str());
 
     // Otherwise try to create the directory:
-#if defined(WIN32) && !defined(__CYGWIN__)
+#if defined(WIN32)
     bool error = _wmkdir(StringUtils::utf8ToWide(path).c_str()) != 0;
 #else
-    bool error = mkdir(path.c_str(), 0755) != 0;
+    bool error = mkdir(path.c_str(), 0777) != 0;
 #endif
     return !error;
 }   // checkAndCreateDirectory
@@ -854,7 +948,7 @@ void FileManager::checkAndCreateConfigDir()
     else
     {
 
-#if defined(WIN32) || defined(__CYGWIN__)
+#if defined(WIN32)
 
         // Try to use the APPDATA directory to store config files and highscore
         // lists. If not defined, used the current directory.
@@ -958,7 +1052,7 @@ void FileManager::checkAndCreateConfigDir()
  */
 void FileManager::checkAndCreateAddonsDir()
 {
-#if defined(WIN32) || defined(__CYGWIN__)
+#if defined(WIN32)
     m_addons_dir  = m_user_config_dir+"../addons/";
 #elif defined(__APPLE__)
     m_addons_dir  = getenv("HOME");
@@ -995,7 +1089,7 @@ void FileManager::checkAndCreateAddonsDir()
  */
 void FileManager::checkAndCreateScreenshotDir()
 {
-#if defined(WIN32) || defined(__CYGWIN__)
+#if defined(WIN32)
     m_screenshot_dir  = m_user_config_dir+"screenshots/";
 #elif defined(__APPLE__)
     m_screenshot_dir  = getenv("HOME");
@@ -1021,7 +1115,7 @@ void FileManager::checkAndCreateScreenshotDir()
 */
 void FileManager::checkAndCreateCachedTexturesDir()
 {
-#if defined(WIN32) || defined(__CYGWIN__)
+#if defined(WIN32)
     m_cached_textures_dir = m_user_config_dir + "cached-textures/";
 #elif defined(__APPLE__)
     m_cached_textures_dir = getenv("HOME");
@@ -1046,7 +1140,7 @@ void FileManager::checkAndCreateCachedTexturesDir()
  */
 void FileManager::checkAndCreateGPDir()
 {
-#if defined(WIN32) || defined(__CYGWIN__)
+#if defined(WIN32)
     m_gp_dir = m_user_config_dir + "grandprix/";
 #elif defined(__APPLE__)
     m_gp_dir  = getenv("HOME");
@@ -1067,7 +1161,7 @@ void FileManager::checkAndCreateGPDir()
 }   // checkAndCreateGPDir
 
 // ----------------------------------------------------------------------------
-#if !defined(WIN32) && !defined(__CYGWIN__) && !defined(__APPLE__)
+#if !defined(WIN32) && !defined(__APPLE__)
 
 /** Find a directory to use for remaining unix variants. Use the new standards
  *  for config directory based on XDG_* environment variables, or a
@@ -1391,6 +1485,9 @@ bool FileManager::removeDirectory(const std::string &name) const
             // So enable it only for Android for now.
             #ifdef MOBILE_STK
             removeDirectory(file);
+            #else
+            if (file.find(m_addons_dir) != std::string::npos)
+                removeDirectory(file);
             #endif
         }
         else
@@ -1465,3 +1562,33 @@ bool FileManager::fileIsNewer(const std::string& f1, const std::string& f2) cons
     FileUtils::statU8Path(f2, &stat2);
     return stat1.st_mtime > stat2.st_mtime;
 }   // fileIsNewer
+
+// ----------------------------------------------------------------------------
+/** Move the source directory into the target directory location.
+*   The target directory must be on the same drive as the source.
+*/
+bool FileManager::moveDirectoryInto(std::string source, std::string target)
+{
+    if (!isDirectory(source) || !isDirectory(target))
+        return false;
+
+    // Remove the last '/'
+    if (source[source.size() - 1] == '/')
+        source.erase(source.end() - 1, source.end());
+    std::string folder = StringUtils::getBasename(source);
+    if (target[target.size() - 1] != '/')
+        target += "/";
+    target += folder;
+
+    // The result target directory must not already exist
+    if (isDirectory(target))
+        return false;
+
+#if defined(WIN32)
+    return MoveFileExW(StringUtils::utf8ToWide(source).c_str(),
+        StringUtils::utf8ToWide(target).c_str(),
+        MOVEFILE_WRITE_THROUGH) != 0;
+#else
+    return rename(source.c_str(), target.c_str()) != -1;
+#endif
+}   // moveDirectoryInto

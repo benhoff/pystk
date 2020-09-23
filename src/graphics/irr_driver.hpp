@@ -45,10 +45,6 @@
 #include <string>
 #include <vector>
 
-#ifdef ANDROID
-#include "main_android.hpp"
-#endif
-
 
 namespace SP
 {
@@ -143,7 +139,7 @@ private:
     int                  m_scene_complexity;
 
     /** Internal method that applies the resolution in user settings. */
-    void                 applyResolutionSettings();
+    void                 applyResolutionSettings(bool recreate_device);
     void                 createListOfVideoModes();
 
     bool                 m_request_screenshot;
@@ -181,7 +177,8 @@ private:
     /** Used to visualise skeletons. */
     std::vector<irr::scene::IAnimatedMeshSceneNode*> m_debug_meshes;
 #endif
-
+    // ------------------------------------------------------------------------
+    void resizeWindow();
 public:
     void doScreenShot();    
 public:
@@ -202,6 +199,7 @@ public:
     scene::IAnimatedMesh *getAnimatedMesh(const std::string &name);
     scene::IMesh         *getMesh(const std::string &name);
     void displayFPS();
+    void displayStoryModeTimer();
     bool                  OnEvent(const irr::SEvent &event);
     void                  setAmbientLight(const video::SColorf &light,
                                           bool force_SH_computation = true);
@@ -515,6 +513,8 @@ public:
     void sameRestart()             {}
     u32 getDefaultFramebuffer() const
                             { return m_video_driver->getDefaultFramebuffer(); }
+    // ------------------------------------------------------------------------
+    void handleWindowResize();
 };   // IrrDriver
 
 extern IrrDriver *irr_driver;

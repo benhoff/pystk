@@ -120,7 +120,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../include)
 
 if(MSVC)
     set(CMAKE_DEBUG_POSTFIX "d")
-    add_definitions(-D_CRT_SECURE_NO_WARNINGS)    
+    add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif()
 
 add_definitions(-DANGELSCRIPT_EXPORT -D_LIB)

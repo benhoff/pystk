@@ -355,6 +355,8 @@ void pollJoysticks()
 {
 #if defined _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
 #ifdef _IRR_COMPILE_WITH_DIRECTINPUT_JOYSTICK_
+    if (0 == ActiveJoysticks.size())
+        return;
 
 	if (0 == ActiveJoysticks.size())
 		return;

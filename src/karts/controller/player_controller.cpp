@@ -343,7 +343,7 @@ void PlayerController::handleZipper()
 }   // handleZipper
 
 // ----------------------------------------------------------------------------
-core::stringw PlayerController::getName() const
+core::stringw PlayerController::getName(bool include_handicap_string) const
 {
     core::stringw name = m_kart->getName();
     return name;

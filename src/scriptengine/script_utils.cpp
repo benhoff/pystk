@@ -25,6 +25,7 @@
 #include "tracks/track.hpp"
 #include "tracks/track_object.hpp"
 #include "tracks/track_object_manager.hpp"
+#include "utils/constants.hpp"
 #include "utils/string_utils.hpp"
 
 #include <angelscript.h>
@@ -167,6 +168,17 @@ namespace Scripting
             return false;
         }
 
+        /* Return a (STK) version string to its integer value */
+        int versionToInt(const std::string* version)
+        {
+            return StringUtils::versionToInt(*version);
+        }
+
+        /* Return the current STK version in string */
+        std::string getSTKVersion()
+        {
+            return STK_VERSION;
+        }
         /** @}*/
         /** @}*/
 
@@ -225,7 +237,15 @@ namespace Scripting
             r = engine->RegisterGlobalFunction("int randomInt(int, int)", 
                                                mp ? WRAP_FN(randomInt) : asFUNCTION(randomInt), 
                                                call_conv); assert(r >= 0);
-                                               
+
+            r = engine->RegisterGlobalFunction("int versionToInt(const string &in)",
+                                               mp ? WRAP_FN(versionToInt) : asFUNCTION(versionToInt),
+                                               call_conv); assert(r >= 0);
+
+            r = engine->RegisterGlobalFunction("string getSTKVersion()",
+                                               mp ? WRAP_FN(getSTKVersion) : asFUNCTION(getSTKVersion),
+                                               call_conv); assert(r >= 0);
+
             r = engine->RegisterGlobalFunction("float randomFloat(int, int)", 
                                                mp ? WRAP_FN(randomFloat) : asFUNCTION(randomFloat),
                                                call_conv); assert(r >= 0);

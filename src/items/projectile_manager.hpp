@@ -55,6 +55,15 @@ private:
      *  being shown or have a sfx playing. */
     HitEffects       m_active_hit_effects;
 public:
+    // ----------------------------------------------------------------------------------------
+    static ProjectileManager* get();
+    // ----------------------------------------------------------------------------------------
+    static void create();
+    // ----------------------------------------------------------------------------------------
+    static void destroy();
+    // ----------------------------------------------------------------------------------------
+    static void clear();
+    // ----------------------------------------------------------------------------------------
                      ProjectileManager() {}
                     ~ProjectileManager() {}
     void             loadData         ();
@@ -77,8 +86,6 @@ public:
     std::shared_ptr<Flyable> newProjectile(AbstractKart *kart,
                                            PowerupManager::PowerupType type);
 };
-
-extern ProjectileManager *projectile_manager;
 
 #endif
 

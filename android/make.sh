@@ -13,7 +13,6 @@ export SDK_PATH_DEFAULT="$DIRNAME/android-sdk"
 export NDK_TOOLCHAIN_PATH="$DIRNAME/obj/bin"
 export NDK_BUILD_SCRIPT="$DIRNAME/Android.mk"
 export PATH="$DIRNAME/obj/bin:$PATH"
-export CROSS_SYSROOT="$DIRNAME/obj/sysroot"
 
 #export NDK_CCACHE=ccache
 export NDK_CPPFLAGS="-O3 -g"
@@ -55,18 +54,24 @@ export PACKAGE_NAME_RELEASE="org.supertuxkart.stk"
 export PACKAGE_CALLBACK_NAME_RELEASE="org_supertuxkart_stk"
 export APP_DIR_NAME_RELEASE="supertuxkart"
 export APP_ICON_RELEASE="$DIRNAME/icon.png"
+export APP_ICON_ADAPTIVE_BG_RELEASE="$DIRNAME/icon_adaptive_bg.png"
+export APP_ICON_ADAPTIVE_FG_RELEASE="$DIRNAME/icon_adaptive_fg.png"
 
 export APP_NAME_BETA="SuperTuxKart Beta"
 export PACKAGE_NAME_BETA="org.supertuxkart.stk_beta"
 export PACKAGE_CALLBACK_NAME_BETA="org_supertuxkart_stk_1beta"
 export APP_DIR_NAME_BETA="supertuxkart-beta"
 export APP_ICON_BETA="$DIRNAME/icon-dbg.png"
+export APP_ICON_ADAPTIVE_BG_BETA="$DIRNAME/icon_adaptive_bg-dbg.png"
+export APP_ICON_ADAPTIVE_FG_BETA="$DIRNAME/icon_adaptive_fg-dbg.png"
 
 export APP_NAME_DEBUG="SuperTuxKart Debug"
 export PACKAGE_NAME_DEBUG="org.supertuxkart.stk_dbg"
 export PACKAGE_CALLBACK_NAME_DEBUG="org_supertuxkart_stk_1dbg"
 export APP_DIR_NAME_DEBUG="supertuxkart-dbg"
 export APP_ICON_DEBUG="$DIRNAME/icon-dbg.png"
+export APP_ICON_ADAPTIVE_BG_DEBUG="$DIRNAME/icon_adaptive_bg-dbg.png"
+export APP_ICON_ADAPTIVE_FG_DEBUG="$DIRNAME/icon_adaptive_fg-dbg.png"
 
 
 # A helper function that checks if error ocurred
@@ -159,6 +164,8 @@ if [ "$BUILD_TYPE" = "debug" ] || [ "$BUILD_TYPE" = "Debug" ]; then
     export PACKAGE_CALLBACK_NAME="$PACKAGE_CALLBACK_NAME_DEBUG"
     export APP_DIR_NAME="$APP_DIR_NAME_DEBUG"
     export APP_ICON="$APP_ICON_DEBUG"
+    export APP_ICON_ADAPTIVE_BG="$APP_ICON_ADAPTIVE_BG_DEBUG"
+    export APP_ICON_ADAPTIVE_FG="$APP_ICON_ADAPTIVE_FG_DEBUG"
 elif [ "$BUILD_TYPE" = "release" ] || [ "$BUILD_TYPE" = "Release" ]; then
     export GRADLE_BUILD_TYPE="assembleRelease"
     export IS_DEBUG_BUILD=0
@@ -167,6 +174,8 @@ elif [ "$BUILD_TYPE" = "release" ] || [ "$BUILD_TYPE" = "Release" ]; then
     export PACKAGE_CALLBACK_NAME="$PACKAGE_CALLBACK_NAME_RELEASE"
     export APP_DIR_NAME="$APP_DIR_NAME_RELEASE"
     export APP_ICON="$APP_ICON_RELEASE"
+    export APP_ICON_ADAPTIVE_BG="$APP_ICON_ADAPTIVE_BG_RELEASE"
+    export APP_ICON_ADAPTIVE_FG="$APP_ICON_ADAPTIVE_FG_RELEASE"
 elif [ "$BUILD_TYPE" = "beta" ] || [ "$BUILD_TYPE" = "Beta" ]; then
     export GRADLE_BUILD_TYPE="assembleRelease"
     export IS_DEBUG_BUILD=0
@@ -175,6 +184,8 @@ elif [ "$BUILD_TYPE" = "beta" ] || [ "$BUILD_TYPE" = "Beta" ]; then
     export PACKAGE_CALLBACK_NAME="$PACKAGE_CALLBACK_NAME_BETA"
     export APP_DIR_NAME="$APP_DIR_NAME_BETA"
     export APP_ICON="$APP_ICON_BETA"
+    export APP_ICON_ADAPTIVE_BG="$APP_ICON_ADAPTIVE_BG_BETA"
+    export APP_ICON_ADAPTIVE_FG="$APP_ICON_ADAPTIVE_FG_BETA"
 else
     echo "Unsupported BUILD_TYPE: $BUILD_TYPE. Possible values are: " \
          "debug, release"
@@ -207,12 +218,35 @@ if [ ! -d "$SDK_PATH" ]; then
     exit
 fi
 
+# Check if we have key for signing in release build
+if [ "$GRADLE_BUILD_TYPE" = "assembleRelease" ]; then
+    if [ -z "$STK_KEYSTORE" ]; then
+        echo "Error: STK_KEYSTORE variable is empty."
+        exit
+    fi
+
+    if [ ! -f "$STK_KEYSTORE" ]; then
+        echo "Error: Couldn't find $STK_KEYSTORE file."
+        exit
+    fi
+
+    if [ -z "$STK_STOREPASS" ]; then
+        echo "Error: STK_STOREPASS variable is empty"
+        exit
+    fi
+
+    if [ -z "$STK_ALIAS" ]; then
+        echo "Error: STK_ALIAS variable is empty."
+        exit
+    fi
+fi
+
 # Find newest build-tools version
 if [ -z "$BUILD_TOOLS_VER" ]; then
     BUILD_TOOLS_DIRS=`ls -1 "$SDK_PATH/build-tools" | sort -V -r`
    
     for DIR in $BUILD_TOOLS_DIRS; do
-        if [ "$DIR" = `echo $DIR | sed 's/[^0-9,.]//g'` ]; then
+        if [ "$DIR" = "`echo $DIR | sed 's/[^0-9,.]//g'`" ]; then
             BUILD_TOOLS_VER="$DIR"
             break
         fi
@@ -286,7 +320,7 @@ if [ ! -f "$DIRNAME/obj/zlib.stamp" ]; then
 
     cd "$DIRNAME/obj/zlib"
     cmake . -DCMAKE_TOOLCHAIN_FILE=../../../cmake/Toolchain-android.cmake \
-            -DHOST=$HOST &&
+            -DHOST=$HOST -DARCH=$ARCH -DCMAKE_C_FLAGS="-fpic" &&
     make $@
     check_error
     touch "$DIRNAME/obj/zlib.stamp"
@@ -301,28 +335,14 @@ if [ ! -f "$DIRNAME/obj/libpng.stamp" ]; then
 
     cd "$DIRNAME/obj/libpng"
     cmake . -DCMAKE_TOOLCHAIN_FILE=../../../cmake/Toolchain-android.cmake \
-            -DHOST=$HOST                                                  \
+            -DHOST=$HOST -DARCH=$ARCH                                     \
             -DZLIB_LIBRARY="$DIRNAME/obj/zlib/libz.a"                     \
             -DZLIB_INCLUDE_DIR="$DIRNAME/obj/zlib/"                       \
-            -DPNG_TESTS=0 &&
+            -DM_LIBRARY="$DIRNAME/obj/sysroot/usr/lib/$HOST/libm.a"       \
+            -DPNG_TESTS=0 -DCMAKE_C_FLAGS="-fpic" &&
     make $@
     check_error
     touch "$DIRNAME/obj/libpng.stamp"
-fi
-
-# Fribidi
-if [ ! -f "$DIRNAME/obj/fribidi.stamp" ]; then
-    echo "Compiling fribidi"
-    mkdir -p "$DIRNAME/obj/fribidi"
-    cp -a -f "$DIRNAME/../lib/fribidi/"* "$DIRNAME/obj/fribidi"
-
-    cd "$DIRNAME/obj/fribidi"
-    ./configure --host=$HOST --enable-static=yes &&
-    make $@
-    check_error
-    mkdir -p "$DIRNAME/obj/fribidi/include/fribidi"
-    cp $DIRNAME/obj/fribidi/lib/*.h "$DIRNAME/obj/fribidi/include/fribidi"
-    touch "$DIRNAME/obj/fribidi.stamp"
 fi
 
 # Freetype bootstrap
@@ -335,7 +355,7 @@ if [ ! -f "$DIRNAME/obj/freetype_bootstrap.stamp" ]; then
     ZLIB_CFLAGS="-I$DIRNAME/obj/zlib/" ZLIB_LIBS="$DIRNAME/obj/zlib/libz.a"\
     LIBPNG_CFLAGS="-I$DIRNAME/obj/libpng/" LIBPNG_LIBS="$DIRNAME/obj/libpng/libpng.a"\
     ./configure --host=$HOST --enable-shared=no \
-                --without-harfbuzz &&
+                --without-harfbuzz --without-brotli &&
     make $@
     check_error
     # We need to rebuild freetype after harfbuzz is compiled
@@ -350,7 +370,7 @@ if [ ! -f "$DIRNAME/obj/harfbuzz.stamp" ]; then
 
     cd "$DIRNAME/obj/harfbuzz"
     FREETYPE_CFLAGS="-I$DIRNAME/obj/freetype/include" \
-    FREETYPE_LIBS="$DIRNAME/obj/freetype/objs/.libs/libfreetype.a $DIRNAME/obj/zlib/libz.a $DIRNAME/obj/libpng/libpng.a"\
+    FREETYPE_LIBS="$DIRNAME/obj/freetype/objs/.libs/libfreetype.a $DIRNAME/obj/libpng/libpng.a $DIRNAME/obj/zlib/libz.a"\
     ./configure --host=$HOST --enable-shared=no \
                 --with-glib=no --with-gobject=no --with-cairo=no \
                 --with-fontconfig=no --with-icu=no --with-graphite2=no &&
@@ -368,10 +388,10 @@ if [ ! -f "$DIRNAME/obj/freetype.stamp" ]; then
     cp -a -f "$DIRNAME/../lib/freetype/"* "$DIRNAME/obj/freetype"
 
     cd "$DIRNAME/obj/freetype"
-    ZLIB_CFLAGS="-I$DIRNAME/obj/zlib/" ZLIB_LIBS="$DIRNAME/obj/zlib/libz.a" \
+    ZLIB_CFLAGS="-fpic -I$DIRNAME/obj/zlib/" ZLIB_LIBS="$DIRNAME/obj/zlib/libz.a" \
     LIBPNG_CFLAGS="-I$DIRNAME/obj/libpng/" LIBPNG_LIBS="$DIRNAME/obj/libpng/libpng.a" \
     HARFBUZZ_CFLAGS="-I$DIRNAME/obj/harfbuzz/src/" HARFBUZZ_LIBS="$DIRNAME/obj/harfbuzz/src/.libs/libharfbuzz.a" \
-    ./configure --host=$HOST --enable-shared=no
+    ./configure --host=$HOST --enable-shared=no --without-brotli
     make $@
     check_error
     touch "$DIRNAME/obj/freetype.stamp"
@@ -385,7 +405,7 @@ if [ ! -f "$DIRNAME/obj/openal.stamp" ]; then
 
     cd "$DIRNAME/obj/openal"
     cmake . -DCMAKE_TOOLCHAIN_FILE=../../../cmake/Toolchain-android.cmake \
-            -DHOST=$HOST                                                  \
+            -DHOST=$HOST -DARCH=$ARCH                                     \
             -DALSOFT_UTILS=0                                              \
             -DALSOFT_EXAMPLES=0                                           \
             -DALSOFT_TESTS=0                                              \
@@ -402,8 +422,10 @@ if [ ! -f "$DIRNAME/obj/openssl.stamp" ]; then
     cp -a -f "$DIRNAME/../lib/openssl/"* "$DIRNAME/obj/openssl"
 
     cd "$DIRNAME/obj/openssl"
-    ./Configure android --cross-compile-prefix="$HOST-"
+    export ANDROID_NDK_HOME="$DIRNAME/obj/"
+    ./Configure android-$ARCH
     make $@
+    unset ANDROID_NDK_HOME
     check_error
     touch "$DIRNAME/obj/openssl.stamp"
 fi
@@ -427,18 +449,18 @@ if [ ! -f "$DIRNAME/obj/curl.stamp" ]; then
     touch "$DIRNAME/obj/curl.stamp"
 fi
 
-# Jpeglib
-if [ ! -f "$DIRNAME/obj/jpeglib.stamp" ]; then
-    echo "Compiling jpeglib"
-    mkdir -p "$DIRNAME/obj/jpeglib"
-    cp -a -f "$DIRNAME/../lib/jpeglib/"* "$DIRNAME/obj/jpeglib"
+# Libjpeg
+if [ ! -f "$DIRNAME/obj/libjpeg.stamp" ]; then
+    echo "Compiling libjpeg"
+    mkdir -p "$DIRNAME/obj/libjpeg"
+    cp -a -f "$DIRNAME/../lib/libjpeg/"* "$DIRNAME/obj/libjpeg"
 
-    cd "$DIRNAME/obj/jpeglib"
+    cd "$DIRNAME/obj/libjpeg"
     cmake . -DCMAKE_TOOLCHAIN_FILE=../../../cmake/Toolchain-android.cmake \
-            -DHOST=$HOST &&
+            -DHOST=$HOST -DARCH=$ARCH -DCMAKE_C_FLAGS="-fpic" &&
     make $@
     check_error
-    touch "$DIRNAME/obj/jpeglib.stamp"
+    touch "$DIRNAME/obj/libjpeg.stamp"
 fi
 
 # Libogg
@@ -448,6 +470,7 @@ if [ ! -f "$DIRNAME/obj/libogg.stamp" ]; then
     cp -a -f "$DIRNAME/../lib/libogg/"* "$DIRNAME/obj/libogg"
 
     cd "$DIRNAME/obj/libogg"
+    CPPFLAGS="-fpic $CPPFLAGS" \
     ./configure --host=$HOST &&
     make $@
     check_error
@@ -461,9 +484,11 @@ if [ ! -f "$DIRNAME/obj/libvorbis.stamp" ]; then
     cp -a -f "$DIRNAME/../lib/libvorbis/"* "$DIRNAME/obj/libvorbis"
 
     cd "$DIRNAME/obj/libvorbis"
-    CPPFLAGS="-I$DIRNAME/obj/libogg/include $CPPFLAGS" \
-    LDFLAGS="-L$DIRNAME/obj/libogg/src/.libs $LDFLAGS" \
+    CPPFLAGS="-fpic -I$DIRNAME/obj/libogg/include $CPPFLAGS" \
+    LDFLAGS="-L$DIRNAME/obj/libogg/src/.libs -lm $LDFLAGS" \
     ./configure --host=$HOST &&
+    sed -i '/#define size_t/d' config.h
+    sed -i 's/-mno-ieee-fp//' lib/Makefile
     make $@
     check_error
     touch "$DIRNAME/obj/libvorbis.stamp"
@@ -477,7 +502,7 @@ ${NDK_PATH}/ndk-build $@                 \
     APP_ABI="$NDK_ABI"                   \
     APP_PLATFORM="$NDK_PLATFORM"         \
     APP_CPPFLAGS="$NDK_CPPFLAGS"         \
-    APP_STL=gnustl_static                \
+    APP_STL=c++_static                   \
     NDK_DEBUG=$IS_DEBUG_BUILD
 
 check_error
@@ -486,18 +511,114 @@ check_error
 echo "Building APK"
 
 mkdir -p "$DIRNAME/res/drawable/"
-mkdir -p "$DIRNAME/res/drawable-hdpi/"
+mkdir -p "$DIRNAME/res/drawable-anydpi-v26/"
 mkdir -p "$DIRNAME/res/drawable-mdpi/"
+mkdir -p "$DIRNAME/res/drawable-hdpi/"
 mkdir -p "$DIRNAME/res/drawable-xhdpi/"
 mkdir -p "$DIRNAME/res/drawable-xxhdpi/"
+mkdir -p "$DIRNAME/res/drawable-xxxhdpi/"
+rm -rf "$DIRNAME/res/values*"
 mkdir -p "$DIRNAME/res/values/"
+
+STYLES_FILE="$DIRNAME/res/values/styles.xml"
+
+echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>"       >  "$STYLES_FILE"
+echo "<!--Generated by make.sh-->"                      >>  "$STYLES_FILE"
+echo "<resources>"                                      >> "$STYLES_FILE"
+echo "    <style name=\"Theme.STKSplashScreen\" parent=\"android:style/Theme.Holo\">" >> "$STYLES_FILE"
+echo "         <item name=\"android:windowBackground\">#A8A8A8</item>" >> "$STYLES_FILE"
+echo "         <item name=\"android:windowFullscreen\">true</item>" >> "$STYLES_FILE"
+echo "         <item name=\"android:windowNoTitle\">true</item>" >> "$STYLES_FILE"
+echo "         <item name=\"android:windowContentOverlay\">@null</item>" >> "$STYLES_FILE"
+echo "    </style>"                                     >> "$STYLES_FILE"
+echo "</resources>"                                     >> "$STYLES_FILE"
 
 STRINGS_FILE="$DIRNAME/res/values/strings.xml"
 
+# Strings used in stk android ui (when extracting game data first time)
+PO_EXTRACT_GAME_DATA="po_extract_game_data"
+PO_EXTRACT_GAME_DATA_STR="Extracting game data..."
+PO_EXTRACT_ERROR="po_extract_error"
+PO_EXTRACT_ERROR_STR="Game data extraction error"
+PO_EXTRACT_ERROR_MSG="po_extract_error_msg"
+PO_EXTRACT_ERROR_MSG_STR="Check remaining device space or reinstall SuperTuxKart."
+PO_QUIT="po_quit"
+PO_QUIT_STR="Quit"
+
 echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>"       >  "$STRINGS_FILE"
+echo "<!--Generated by make.sh-->"                      >>  "$STRINGS_FILE"
 echo "<resources>"                                      >> "$STRINGS_FILE"
 echo "    <string name=\"app_name\">$APP_NAME</string>" >> "$STRINGS_FILE"
+echo "    <string name=\"$PO_EXTRACT_GAME_DATA\">$PO_EXTRACT_GAME_DATA_STR</string>" >> "$STRINGS_FILE"
+echo "    <string name=\"$PO_EXTRACT_ERROR\">$PO_EXTRACT_ERROR_STR</string>" >> "$STRINGS_FILE"
+echo "    <string name=\"$PO_EXTRACT_ERROR_MSG\">$PO_EXTRACT_ERROR_MSG_STR</string>" >> "$STRINGS_FILE"
+echo "    <string name=\"$PO_QUIT\">$PO_QUIT_STR</string>" >> "$STRINGS_FILE"
 echo "</resources>"                                     >> "$STRINGS_FILE"
+
+function translate_str()
+{
+    echo $(grep -A 1 -e "msgid \"$1\"" "$2" \
+        | sed -n 's/msgstr "\(.*\)"/\1/p' | sed "s/'/\\\'/g")
+}
+
+find "$DIRNAME/assets/data/po" -type f -name '*.po' -print0 |
+while IFS= read -r -d '' PO; do
+    CUR_LANG=$(basename -- "$PO" | cut -f 1 -d '.')
+    # Skip english po file
+    if [ "$CUR_LANG" = "en" ]; then
+        continue
+    fi
+    # Fix some difference in language code
+    if [ "$CUR_LANG" = "he" ]; then
+        # Hebrew
+        CUR_LANG="iw"
+    fi
+    if [ "$CUR_LANG" = "id" ]; then
+        # Indonesian
+        CUR_LANG="in"
+    fi
+    if [ "$CUR_LANG" = "yi" ]; then
+        # Yiddish
+        CUR_LANG="ji"
+    fi
+    CUR_LANG=$(echo "$CUR_LANG" | sed 's/_/-r/g')
+    EXTRACT_GAME_DATA_STR=$(translate_str "$PO_EXTRACT_GAME_DATA_STR" "$PO")
+    EXTRACT_ERROR_STR=$(translate_str "$PO_EXTRACT_ERROR_STR" "$PO")
+    EXTRACT_ERROR_MSG_STR=$(translate_str "$PO_EXTRACT_ERROR_MSG_STR" "$PO")
+    QUIT_STR=$(translate_str "$PO_QUIT_STR" "$PO")
+    if [ -n "$EXTRACT_GAME_DATA_STR" ] \
+    || [ -n "$EXTRACT_ERROR_STR" ] \
+    || [ -n "$EXTRACT_ERROR_MSG_STR" ] \
+    || [ -n "$QUIT_STR" ]; then
+        mkdir -p "$DIRNAME/res/values-$CUR_LANG"
+        TRANSLATION="$DIRNAME/res/values-$CUR_LANG/strings.xml"
+        echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>"       >  "$TRANSLATION"
+        echo "<!--Generated by make.sh-->"                      >>  "$TRANSLATION"
+        echo "<resources>"                                      >> "$TRANSLATION"
+        if [ -n "$EXTRACT_GAME_DATA_STR" ] ; then
+            echo "    <string name=\"$PO_EXTRACT_GAME_DATA\">$EXTRACT_GAME_DATA_STR</string>" >> "$TRANSLATION"
+        fi
+        if [ -n "$EXTRACT_ERROR_STR" ] ; then
+            echo "    <string name=\"$PO_EXTRACT_ERROR\">$EXTRACT_ERROR_STR</string>" >> "$TRANSLATION"
+        fi
+        if [ -n "$EXTRACT_ERROR_MSG_STR" ] ; then
+            echo "    <string name=\"$PO_EXTRACT_ERROR_MSG\">$EXTRACT_ERROR_MSG_STR</string>" >> "$TRANSLATION"
+        fi
+        if [ -n "$QUIT_STR" ] ; then
+            echo "    <string name=\"$PO_QUIT\">$QUIT_STR</string>" >> "$TRANSLATION"
+        fi
+        echo "</resources>"                                     >> "$TRANSLATION"
+    fi
+done
+
+ADAPTIVE_ICON_FILE="$DIRNAME/res/drawable-anydpi-v26/icon.xml"
+
+echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>"                      >  "$ADAPTIVE_ICON_FILE"
+echo "<adaptive-icon"                                                  >> "$ADAPTIVE_ICON_FILE"
+echo "  xmlns:android=\"http://schemas.android.com/apk/res/android\">" >> "$ADAPTIVE_ICON_FILE"
+echo "    <background android:drawable=\"@drawable/icon_bg\" />"       >> "$ADAPTIVE_ICON_FILE"
+echo "    <foreground android:drawable=\"@drawable/icon_fg\" />"       >> "$ADAPTIVE_ICON_FILE"
+echo "</adaptive-icon>"                                                >> "$ADAPTIVE_ICON_FILE"
 
 sed -i "s/minSdkVersion=\".*\"/minSdkVersion=\"$MIN_SDK_VERSION\"/g" \
        "$DIRNAME/AndroidManifest.xml"
@@ -532,12 +653,48 @@ sed -i "s/versionName=\".*\"/versionName=\"$PROJECT_VERSION\"/g" \
 sed -i "s/versionCode=\".*\"/versionCode=\"$PROJECT_CODE\"/g" \
        "$DIRNAME/AndroidManifest.xml"
 
+cp -f "$DIRNAME/../lib/sdl2/android-project/app/src/main/java/org/libsdl/app/HIDDevice.java" \
+       "$DIRNAME/src/main/java/"
+cp -f "$DIRNAME/../lib/sdl2/android-project/app/src/main/java/org/libsdl/app/HIDDeviceBLESteamController.java" \
+       "$DIRNAME/src/main/java/"
+cp -f "$DIRNAME/../lib/sdl2/android-project/app/src/main/java/org/libsdl/app/HIDDeviceManager.java" \
+       "$DIRNAME/src/main/java/"
+cp -f "$DIRNAME/../lib/sdl2/android-project/app/src/main/java/org/libsdl/app/HIDDeviceUSB.java" \
+       "$DIRNAME/src/main/java/"
+cp -f "$DIRNAME/../lib/sdl2/android-project/app/src/main/java/org/libsdl/app/SDLActivity.java" \
+       "$DIRNAME/src/main/java/"
+cp -f "$DIRNAME/../lib/sdl2/android-project/app/src/main/java/org/libsdl/app/SDLAudioManager.java" \
+       "$DIRNAME/src/main/java/"
+cp -f "$DIRNAME/../lib/sdl2/android-project/app/src/main/java/org/libsdl/app/SDLControllerManager.java" \
+       "$DIRNAME/src/main/java/"
+cp -f "$DIRNAME/../lib/sdl2/android-project/app/src/main/java/org/libsdl/app/SDL.java" \
+       "$DIRNAME/src/main/java/"
+
 cp "banner.png" "$DIRNAME/res/drawable/banner.png"
 cp "$APP_ICON" "$DIRNAME/res/drawable/icon.png"
-convert -scale 72x72 "$APP_ICON" "$DIRNAME/res/drawable-hdpi/icon.png"
 convert -scale 48x48 "$APP_ICON" "$DIRNAME/res/drawable-mdpi/icon.png"
+convert -scale 72x72 "$APP_ICON" "$DIRNAME/res/drawable-hdpi/icon.png"
 convert -scale 96x96 "$APP_ICON" "$DIRNAME/res/drawable-xhdpi/icon.png"
 convert -scale 144x144 "$APP_ICON" "$DIRNAME/res/drawable-xxhdpi/icon.png"
+convert -scale 192x192 "$APP_ICON" "$DIRNAME/res/drawable-xxxhdpi/icon.png"
+
+#convert -scale 108x108 "$APP_ICON_ADAPTIVE_BG" "$DIRNAME/res/drawable-mdpi/icon_bg.png"
+#convert -scale 162x162 "$APP_ICON_ADAPTIVE_BG" "$DIRNAME/res/drawable-hdpi/icon_bg.png"
+#convert -scale 216x216 "$APP_ICON_ADAPTIVE_BG" "$DIRNAME/res/drawable-xhdpi/icon_bg.png"
+#convert -scale 324x324 "$APP_ICON_ADAPTIVE_BG" "$DIRNAME/res/drawable-xxhdpi/icon_bg.png"
+#convert -scale 432x432 "$APP_ICON_ADAPTIVE_BG" "$DIRNAME/res/drawable-xxxhdpi/icon_bg.png"
+
+convert -scale 108x108 xc:"rgba(255,255,255,255)" "$DIRNAME/res/drawable-mdpi/icon_bg.png"
+convert -scale 162x162 xc:"rgba(255,255,255,255)" "$DIRNAME/res/drawable-hdpi/icon_bg.png"
+convert -scale 216x216 xc:"rgba(255,255,255,255)" "$DIRNAME/res/drawable-xhdpi/icon_bg.png"
+convert -scale 324x324 xc:"rgba(255,255,255,255)" "$DIRNAME/res/drawable-xxhdpi/icon_bg.png"
+convert -scale 432x432 xc:"rgba(255,255,255,255)" "$DIRNAME/res/drawable-xxxhdpi/icon_bg.png"
+
+convert -scale 108x108 "$APP_ICON_ADAPTIVE_FG" "$DIRNAME/res/drawable-mdpi/icon_fg.png"
+convert -scale 162x162 "$APP_ICON_ADAPTIVE_FG" "$DIRNAME/res/drawable-hdpi/icon_fg.png"
+convert -scale 216x216 "$APP_ICON_ADAPTIVE_FG" "$DIRNAME/res/drawable-xhdpi/icon_fg.png"
+convert -scale 324x324 "$APP_ICON_ADAPTIVE_FG" "$DIRNAME/res/drawable-xxhdpi/icon_fg.png"
+convert -scale 432x432 "$APP_ICON_ADAPTIVE_FG" "$DIRNAME/res/drawable-xxxhdpi/icon_fg.png"
 
 if [ -f "/usr/lib/jvm/java-8-openjdk-amd64/bin/java" ]; then
     export JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
@@ -547,6 +704,18 @@ fi
 export ANDROID_HOME="$SDK_PATH"
 ./gradlew -Pcompile_sdk_version=$COMPILE_SDK_VERSION \
           -Pbuild_tools_ver="$BUILD_TOOLS_VER"       \
+          -Pstorepass="$STK_STOREPASS"               \
+          -Pkeystore="$STK_KEYSTORE"                 \
+          -Palias="$STK_ALIAS"                       \
           $GRADLE_BUILD_TYPE
+
+if [ "$GRADLE_BUILD_TYPE" = "assembleRelease" ]; then
+./gradlew -Pcompile_sdk_version=$COMPILE_SDK_VERSION \
+          -Pbuild_tools_ver="$BUILD_TOOLS_VER"       \
+          -Pstorepass="$STK_STOREPASS"               \
+          -Pkeystore="$STK_KEYSTORE"                 \
+          -Palias="$STK_ALIAS"                       \
+          "bundleRelease"
+fi
 
 check_error

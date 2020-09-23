@@ -18,7 +18,10 @@
 #include "graphics/irr_driver.hpp"
 
 #include "config/user_config.hpp"
+#include "font/bold_face.hpp"
+#include "font/digit_face.hpp"
 #include "font/font_manager.hpp"
+#include "font/regular_face.hpp"
 #include "graphics/2dutils.hpp"
 #include "graphics/b3d_mesh_loader.hpp"
 #include "graphics/camera.hpp"
@@ -32,14 +35,19 @@
 #include "graphics/per_camera_node.hpp"
 #include "graphics/referee.hpp"
 #include "graphics/render_target.hpp"
+#include "graphics/rtts.hpp"
+#include "graphics/shader.hpp"
 #include "graphics/shader_based_renderer.hpp"
+#include "graphics/shader_files_manager.hpp"
 #include "graphics/shared_gpu_objects.hpp"
 #include "graphics/sp_mesh_loader.hpp"
 #include "graphics/sp/sp_base.hpp"
 #include "graphics/sp/sp_dynamic_draw_call.hpp"
 #include "graphics/sp/sp_mesh.hpp"
 #include "graphics/sp/sp_mesh_node.hpp"
+#include "graphics/sp/sp_shader_manager.hpp"
 #include "graphics/sp/sp_texture_manager.hpp"
+#include "graphics/stk_text_billboard.hpp"
 #include "graphics/stk_tex_manager.hpp"
 #include "graphics/stk_texture.hpp"
 #include "graphics/sun.hpp"
@@ -139,12 +147,10 @@ IrrDriver::IrrDriver()
     p.Bits          = 16U;
     p.Stencilbuffer = true;
     p.Fullscreen    = false;
-    p.Vsync         = false;
+    p.SwapInterval  = 0;
     p.EventReceiver = NULL;
     p.FileSystem    = file_manager->getFileSystem();
-#ifdef ANDROID
-    p.PrivateData   = (void*)global_android_app;
-#endif
+    p.PrivateData   = NULL;
 
     m_device = createDeviceEx(p);
 
@@ -248,7 +254,7 @@ void IrrDriver::updateConfigIfRelevant()
 }   // updateConfigIfRelevant
 core::recti IrrDriver::getSplitscreenWindow(int WindowNum) 
 {
-    const int playernum = race_manager->getNumLocalPlayers();
+    const int playernum = RaceManager::get()->getNumLocalPlayers();
     const float playernum_sqrt = sqrtf((float)playernum);
     
     int rows = ceil(playernum_sqrt);
@@ -368,7 +374,6 @@ void IrrDriver::initDevice()
             params.Bits          = bits;
             params.EventReceiver = this;
             params.Fullscreen    = false;
-            params.Vsync         = false;
             params.FileSystem    = file_manager->getFileSystem();
             params.WindowSize    =
                 core::dimension2du(UserConfigParams::m_width,
@@ -376,7 +381,6 @@ void IrrDriver::initDevice()
             params.HandleSRGB    = false;
             params.ShadersPath   = (file_manager->getShadersDir() +
                                                            "irrlicht/").c_str();
-
             /*
             switch ((int)UserConfigParams::m_antialiasing)
             {
@@ -524,7 +528,6 @@ void IrrDriver::initDevice()
         // does not set the 'enable mipmap' flag.
         m_scene_manager->getParameters()
             ->setAttribute(scene::B3D_LOADER_IGNORE_MIPMAP_FLAG, true);
-
     } // If showing graphics
 
     // Initialize material2D
@@ -1371,6 +1374,50 @@ void IrrDriver::displayFPS()
 }   // updateFPS
 
 // ----------------------------------------------------------------------------
+/** Displays the timer for Story Mode on the screen.
+ *  This can't be done in race or overworld GUIs as
+ *  the speedrun timer has to be displayed on all screens.
+ */
+void IrrDriver::displayStoryModeTimer()
+{
+#ifndef SERVER_ONLY
+    if (story_mode_timer->getStoryModeTime() < 0)
+        return;
+
+    gui::ScalableFont* font = GUIEngine::getHighresDigitFont();
+
+    core::stringw timer_string;
+    timer_string = story_mode_timer->getTimerString().c_str();
+
+    //The normal timer size ; to not write over it
+    core::dimension2du area = font->getDimension(L"99:99.99");
+    int regular_timer_width = area.Width;
+    if (UserConfigParams::m_speedrun_mode)
+        area = font->getDimension(L"99:99:99.999");
+    else
+        area = font->getDimension(L"99:99:99");
+
+    int screen_width = irr_driver->getActualScreenSize().Width;
+    int screen_height = irr_driver->getActualScreenSize().Height;
+    int speedrun_string_width = area.Width;
+    int dist_from_right = speedrun_string_width + regular_timer_width + screen_width*4/100;
+
+    core::rect<s32> position(screen_width - dist_from_right, screen_height*2/100,
+                             screen_width                  , screen_height*6/100);
+
+    font->setColoredBorder(irr::video::SColor(255, 0, 32, 80));
+
+    if ( (UserConfigParams::m_speedrun_mode && story_mode_timer->speedrunIsFinished()) ||
+         (!UserConfigParams::m_speedrun_mode && PlayerManager::getCurrentPlayer()->isFinished()) )
+        font->draw(timer_string.c_str(), position, video::SColor(255, 0, 255, 0), false, false, NULL, true);
+    else
+        font->draw(timer_string.c_str(), position, video::SColor(255, 220, 255, 0), false, false, NULL, true);
+
+    font->disableColoredBorder();
+#endif
+} // displayStoryModeTimer
+
+// ----------------------------------------------------------------------------
 /** Requess a screenshot from irrlicht, and save it in a file.
  */
 void IrrDriver::doScreenShot()
@@ -1409,7 +1456,7 @@ void IrrDriver::setRecording(bool val)
     if (val == true)
     {
         std::string track_name = World::getWorld() != NULL ?
-            race_manager->getTrackName() : "menu";
+            RaceManager::get()->getTrackName() : "menu";
         time_t rawtime;
         time(&rawtime);
         tm* timeInfo = localtime(&rawtime);
@@ -1546,5 +1593,53 @@ void IrrDriver::resetDebugModes()
     m_boundingboxesviz = false;
 #ifndef SERVER_ONLY
     SP::sp_debug_view = false;
+#endif
+}
+
+// ----------------------------------------------------------------------------
+void IrrDriver::resizeWindow()
+{
+#ifndef SERVER_ONLY
+    // Reload fonts
+    font_manager->getFont<BoldFace>()->init();
+    font_manager->getFont<DigitFace>()->init();
+    font_manager->getFont<RegularFace>()->init();
+    // Reload GUIEngine
+    GUIEngine::reloadForNewSize();
+    if (World::getWorld())
+    {
+        for(unsigned int i=0; i<Camera::getNumCameras(); i++)
+            Camera::getCamera(i)->setupCamera();
+        ShaderBasedRenderer* sbr = dynamic_cast<ShaderBasedRenderer*>(m_renderer);
+        if (sbr)
+        {
+            delete sbr->getRTTs();
+            // This will recreate the RTTs
+            sbr->onLoadWorld();
+        }
+        STKTextBillboard::updateAllTextBillboards();
+        World::getWorld()->getRaceGUI()->recreateGUI();
+    }
+
+#ifdef ENABLE_RECORDER
+    ogrDestroy();
+    RecorderConfig cfg;
+    cfg.m_triple_buffering = 1;
+    cfg.m_record_audio = 1;
+    cfg.m_width = m_actual_screen_size.Width;
+    cfg.m_height = m_actual_screen_size.Height;
+    int vf = UserConfigParams::m_video_format;
+    cfg.m_video_format = (VideoFormat)vf;
+    cfg.m_audio_format = OGR_AF_VORBIS;
+    cfg.m_audio_bitrate = UserConfigParams::m_audio_bitrate;
+    cfg.m_video_bitrate = UserConfigParams::m_video_bitrate;
+    cfg.m_record_fps = UserConfigParams::m_record_fps;
+    cfg.m_record_jpg_quality = UserConfigParams::m_recorder_jpg_quality;
+    if (ogrInitConfig(&cfg) == 0)
+    {
+        Log::error("irr_driver",
+            "RecorderConfig is invalid, use the default one.");
+    }
+#endif
 #endif
 }

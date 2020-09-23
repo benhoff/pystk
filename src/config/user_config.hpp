@@ -137,7 +137,7 @@ public:
 
     irr::core::stringc toString() const;
 
-    operator std::map<T, U>() const
+    operator std::map<T, U>&() const
     {
         return m_elements;
     }
@@ -149,7 +149,19 @@ public:
     {
         return m_elements.end();
     }
-    std::map<T, U>& operator=(const std::map<T,U>& v)
+    typename std::map<T, U>::iterator find(const T& key)
+    {
+        return m_elements.find(key);
+    }
+    size_t erase(const T& key)
+    {
+        return m_elements.erase(key);
+    }
+    bool empty() const
+    {
+        return m_elements.empty();
+    }
+    std::map<T, U>& operator=(const std::map<T, U>& v)
     {
         m_elements = std::map<T, U>(v);
         return m_elements;
@@ -158,6 +170,10 @@ public:
     {
         m_elements = std::map<T,U>(v);
         return m_elements;
+    }
+    size_t size() const
+    {
+        return m_elements.size();
     }
     U& operator[] (const T key)
     {
@@ -196,6 +212,7 @@ public:
     void findYourDataInAnAttributeOf(const XMLNode* node);
 
     irr::core::stringc toString() const;
+    void setDefaultValue(int v)  { m_value = m_default_value = v;    }
     void revertToDefaults()      { m_value = m_default_value;        }
     int getDefaultValue()        { return  m_default_value;          }
     operator int() const         { return m_value;                   }
@@ -296,6 +313,7 @@ public:
 
     irr::core::stringc toString() const;
     void revertToDefaults() { m_value = m_default_value; }
+    void setDefaultValue(bool v)  { m_value = m_default_value = v; }
 
     operator bool() const { return m_value; }
     bool& operator=(const bool& v) { m_value = v; return m_value; }
@@ -329,6 +347,7 @@ public:
 
     irr::core::stringc toString() const;
     void revertToDefaults() { m_value = m_default_value; }
+    void setDefaultValue(float v)  { m_value = m_default_value = v; }
 
     operator float() const { return m_value; }
     float& operator=(const float& v) { m_value = v; return m_value; }
@@ -417,6 +436,41 @@ struct UserConfigParams
     static float m_fpscam_angular_velocity;
     static float m_fpscam_max_angular_velocity;
 };
+#undef PARAM_PREFIX
+#undef PARAM_SUFFIX
+
+// ============================================================================
+/**
+  * \brief Class for managing general STK user configuration data.
+  * \ingroup config
+  */
+class UserConfig : public NoCopy
+{
+private:
+
+    /** Filename of the user config file. */
+    std::string        m_filename;
+    irr::core::stringw m_warning;
+
+    static const int m_current_config_version;
+
+public:
+          /** Create the user config object; does not actually load it,
+           *  UserConfig::loadConfig needs to be called. */
+          UserConfig();
+         ~UserConfig();
+
+    bool  loadConfig();
+    void  saveConfig();
+
+    const irr::core::stringw& getWarning()        { return m_warning;  }
+    void  resetWarning()                          { m_warning="";      }
+    void  setWarning(irr::core::stringw& warning) { m_warning=warning; }
+
+};   // UserConfig
+
+
+extern UserConfig *user_config;
 
 #endif
 

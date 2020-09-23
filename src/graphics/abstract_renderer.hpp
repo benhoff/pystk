@@ -98,6 +98,7 @@ public:
      */
     virtual std::unique_ptr<RenderTarget> createRenderTarget(const irr::core::dimension2du &dimension,
                                                              const std::string &name) = 0;
+    virtual void createPostProcessing() {}
 };
 
 #endif //HEADER_ABSTRACT_RENDERER_HPP

@@ -41,14 +41,15 @@ class TrackRenderer;
 class ShaderBasedRenderer: public AbstractRenderer
 {
 private:
+    bool                        m_dump_rtt;
     RTT                        *m_rtts;
     Skybox                     *m_skybox;
     SphericalHarmonics         *m_spherical_harmonics;
     DrawCalls                   m_draw_calls;
     LightingPasses              m_lighting_passes;
     ShadowMatrices              m_shadow_matrices;
-    PostProcessing             *m_post_processing;
 	TrackRenderer              *m_track_renderer;
+    std::unique_ptr<PostProcessing> m_post_processing;
 
     void prepareForwardRenderer();
 
@@ -115,7 +116,9 @@ public:
 
     RTT* getRTTs() { return m_rtts; }
     ShadowMatrices* getShadowMatrices() { return &m_shadow_matrices; }
-    PostProcessing* getPostProcessing() { return m_post_processing; }
+    PostProcessing* getPostProcessing() { return m_post_processing.get(); }
+    void dumpRTT() { m_dump_rtt = true; }
+    void createPostProcessing() OVERRIDE;
 
 };
 

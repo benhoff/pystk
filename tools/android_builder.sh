@@ -9,11 +9,11 @@
 # STK for your own use, then use android/make.sh script instead.
 
 export BUILD_TYPE=Beta
-export PROJECT_VERSION=git20181001
-export PROJECT_CODE=48
-export STOREPASS="xxx"
-export KEYSTORE="/path/to/stk.keystore"
-export ALIAS="alias"
+export PROJECT_VERSION=git20200827
+export PROJECT_CODE=192
+export STK_STOREPASS="xxx"
+export STK_KEYSTORE="/path/to/stk.keystore"
+export STK_ALIAS="alias"
 
 
 check_error()
@@ -58,6 +58,8 @@ init_directories()
         ln -s ../android/gradlew
         ln -s ../android/icon.png
         ln -s ../android/icon-dbg.png
+        ln -s ../android/icon_adaptive_fg.png
+        ln -s ../android/icon_adaptive_fg-dbg.png
         ln -s ../android/make.sh
         ln -s ../android/android-ndk
         ln -s ../android/android-sdk
@@ -98,9 +100,12 @@ generate_assets()
     fi
 
     cd ./android
+    DECREASE_QUALITY=0                              \
+    CONVERT_TO_JPG=0                                \
+    ASSETS_PATHS="../android-output/assets-lq/data" \
     ./generate_assets.sh
 
-    if [ ! -f "./assets/directories.txt" ]; then
+    if [ ! -f "./assets/files.txt" ]; then
         echo "Error: Couldn't generate assets"
         return
     fi
@@ -108,9 +113,95 @@ generate_assets()
     if [ -f "./assets/data/supertuxkart.git" ]; then
         mv "./assets/data/supertuxkart.git" \
            "./assets/data/supertuxkart.$PROJECT_VERSION"
+        sed -i "s/data\/supertuxkart.git/data\/supertuxkart.$PROJECT_VERSION/g" \
+           "./assets/files.txt"
     fi
 
     cd -
+}
+
+generate_full_assets()
+{
+    echo "Generate zip file with full assets"
+
+    if [ -f "./android-output/stk-assets.zip" ]; then
+        echo "Full assets already found in ./android-output/stk-assets.zip"
+        return
+    fi
+
+    cp -a ./android/generate_assets.sh ./android-output/
+
+    cd ./android-output/
+
+    ONLY_ASSETS=1           \
+    TRACKS="all"            \
+    TEXTURE_SIZE=512        \
+    JPEG_QUALITY=95         \
+    PNG_QUALITY=95          \
+    PNGQUANT_QUALITY=95     \
+    SOUND_QUALITY=112       \
+    SOUND_MONO=0            \
+    SOUND_SAMPLE=44100      \
+    OUTPUT_PATH="assets-hq" \
+    ./generate_assets.sh
+
+    if [ ! -f "./assets-hq/files.txt" ]; then
+        echo "Error: Couldn't generate full assets"
+        return
+    fi
+
+    cd ./assets-hq/data
+    zip -r ../../stk-assets.zip ./*
+    cd ../../
+
+    rm ./generate_assets.sh
+    
+    if [ ! -f "./stk-assets.zip" ]; then
+        echo "Error: Couldn't generate full assets"
+        return
+    fi
+
+    FULL_ASSETS_SIZE=`du -b ./stk-assets.zip | cut -f1`
+    sed -i "s/stk_assets_size = .*\;/stk_assets_size = $FULL_ASSETS_SIZE\;/g" \
+           "../src/utils/download_assets_size.hpp"
+    
+    cd ../
+}
+
+generate_lq_assets()
+{
+    echo "Generate zip file with lq assets"
+
+    if [ -f "./android-output/stk-assets-lq.zip" ]; then
+        echo "Full assets already found in ./android-output/stk-assets-lq..zip"
+        return
+    fi
+
+    cp -a ./android/generate_assets.sh ./android-output/
+
+    cd ./android-output/
+
+    ONLY_ASSETS=1           \
+    OUTPUT_PATH="assets-lq" \
+    ./generate_assets.sh
+
+    if [ ! -f "./assets-lq/files.txt" ]; then
+        echo "Error: Couldn't generate lq assets"
+        return
+    fi
+
+    cd ./assets-lq/data
+    zip -r ../../stk-assets-lq.zip ./*
+    cd ../../
+
+    rm ./generate_assets.sh
+    
+    if [ ! -f "./stk-assets-lq.zip" ]; then
+        echo "Error: Couldn't generate lq assets"
+        return
+    fi
+    
+    cd ../
 }
 
 build_package()
@@ -128,38 +219,28 @@ build_package()
     export COMPILE_ARCH=$ARCH1
 
     cd ./android-$ARCH1
-    ./make.sh -j5
+    ./make.sh -j $(($(nproc) + 1))
     cd -
 
-    if [ ! -f ./android-$ARCH1/build/outputs/apk/release/android-$ARCH1-release-unsigned.apk ]; then
+    if [ ! -f ./android-$ARCH1/build/outputs/apk/release/android-$ARCH1-release.apk ]; then
         echo "Error: Couldn't build apk for architecture $ARCH1"
         return
     fi
 
-    cp ./android-$ARCH1/build/outputs/apk/release/android-$ARCH1-release-unsigned.apk \
-       ./android-output/SuperTuxKart-$PROJECT_VERSION-$ARCH1-unaligned.apk
+    if [ ! -f ./android-$ARCH1/build/outputs/bundle/release/android-$ARCH1.aab ]; then
+        echo "Error: Couldn't build app bundle for architecture $ARCH1"
+        return
+    fi
+
+    cp ./android-$ARCH1/build/outputs/apk/release/android-$ARCH1-release.apk \
+       ./android-output/SuperTuxKart-$PROJECT_VERSION-$ARCH1.apk
+
+    cp ./android-$ARCH1/build/outputs/bundle/release/android-$ARCH1.aab \
+       ./android-output/SuperTuxKart-$PROJECT_VERSION-$ARCH1.aab
 
     cp ./android-$ARCH1/obj/local/$ARCH2/libmain.so \
        ./android-output/SuperTuxKart-$PROJECT_VERSION-$ARCH1-libmain.so
 
-    cd ./android-output
-
-    jarsigner -sigalg SHA1withRSA -digestalg SHA1                 \
-              -keystore "$KEYSTORE"                               \
-              -storepass "$STOREPASS"                             \
-              SuperTuxKart-$PROJECT_VERSION-$ARCH1-unaligned.apk  \
-              "$ALIAS"
-
-    check_error
-
-    zipalign -f 4 SuperTuxKart-$PROJECT_VERSION-$ARCH1-unaligned.apk \
-                  SuperTuxKart-$PROJECT_VERSION-$ARCH1.apk
-
-    check_error
-
-    rm SuperTuxKart-$PROJECT_VERSION-$ARCH1-unaligned.apk
-
-    cd -
 }
 
 
@@ -172,6 +253,8 @@ fi
 #Build packages
 init_directories
 
+generate_lq_assets
+generate_full_assets
 generate_assets
 
 if [ -z "$1" ] || [ "$1" = "armv7" ]; then

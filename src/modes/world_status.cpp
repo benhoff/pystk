@@ -22,19 +22,25 @@
 #include "karts/abstract_kart.hpp"
 #include "modes/world.hpp"
 #include "tracks/track.hpp"
+#include "utils/stk_process.hpp"
 
 #include <irrlicht.h>
 
 //-----------------------------------------------------------------------------
-WorldStatus::WorldStatus()
+WorldStatus::WorldStatus() : m_process_type(STKProcess::getType())
 {
     m_clock_mode        = CLOCK_CHRONO;
     m_phase             = SETUP_PHASE;
 
     IrrlichtDevice *device = irr_driver->getDevice();
 
-    if (device->getTimer()->isStopped())
-        device->getTimer()->start();
+    if (m_process_type == PT_MAIN)
+    {
+        IrrlichtDevice *device = irr_driver->getDevice();
+
+        if (device->getTimer()->isStopped())
+            device->getTimer()->start();
+    }
 }   // WorldStatus
 
 //-----------------------------------------------------------------------------
@@ -50,13 +56,16 @@ void WorldStatus::reset(bool restart)
     // other side effects.
     m_phase           = SETUP_PHASE;
 
-    IrrlichtDevice *device = irr_driver->getDevice();
+    if (m_process_type == PT_MAIN)
+    {
+        IrrlichtDevice *device = irr_driver->getDevice();
 
-    if (device->getTimer()->isStopped())
-        device->getTimer()->start();
+        if (device->getTimer()->isStopped())
+            device->getTimer()->start();
 
-    // Set the right music
-    Track::getCurrentTrack()->startMusic();
+        // Set the right music
+        Track::getCurrentTrack()->startMusic();
+    }
 }   // reset
 
 //-----------------------------------------------------------------------------
@@ -66,8 +75,13 @@ WorldStatus::~WorldStatus()
 {
     IrrlichtDevice *device = irr_driver->getDevice();
 
-    if (device->getTimer()->isStopped())
-        device->getTimer()->start();
+    if (m_process_type == PT_MAIN)
+    {
+        IrrlichtDevice *device = irr_driver->getDevice();
+
+        if (device->getTimer()->isStopped())
+            device->getTimer()->start();
+    }
 }   // ~WorldStatus
 
 //-----------------------------------------------------------------------------
@@ -160,7 +174,7 @@ void WorldStatus::updateTime(int ticks)
     switch (m_clock_mode)
     {
         case CLOCK_CHRONO:
-            if (!device->getTimer()->isStopped())
+            if (m_process_type == PT_CHILD || !device->getTimer()->isStopped())
             {
                 m_time_ticks++;
                 m_time  = stk_config->ticks2Time(m_time_ticks);
@@ -173,11 +187,13 @@ void WorldStatus::updateTime(int ticks)
             {
                 m_time_ticks = 0;
                 m_time = 0.0f;
-                m_count_up_ticks = 0;
+                // For rescue animation playing (if any) in result screen
+                if (m_process_type == PT_CHILD || !device->getTimer()->isStopped())
+                    m_count_up_ticks++;
                 break;
             }
 
-            if (!device->getTimer()->isStopped())
+            if (m_process_type == PT_CHILD || !device->getTimer()->isStopped())
             {
                 m_time_ticks--;
                 m_time = stk_config->ticks2Time(m_time_ticks);

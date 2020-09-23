@@ -24,6 +24,7 @@
 #include "utils/constants.hpp"
 #include "utils/log.hpp"
 #include "utils/time.hpp"
+#include "utils/translation.hpp"
 #include "utils/types.hpp"
 #include "utils/utf8.h"
 #include "irrArray.h"
@@ -37,6 +38,8 @@
 #include <cstring>
 #include <cwchar>
 #include <exception>
+
+extern std::string g_android_main_user_agent;
 
 namespace StringUtils
 {
@@ -758,9 +761,9 @@ namespace StringUtils
                     }
                     else if (input[n] == ';')
                     {
-                        int c;
+                        unsigned int c;
 
-                        const char* format = (isHex ? "%x" : "%i");
+                        const char* format = (isHex ? "%x" : "%u");
                         if (sscanf(entity.c_str(), format, &c) == 1)
                         {
                             output += char32_t(c);
@@ -889,7 +892,7 @@ namespace StringUtils
     }   // utf8ToWide
 
     /* This function checks if a char is suitable to break lines.
-     * Currently a copy of the function found at irrlicht/include/utfwrapping.h */
+     * Based on the function found at irrlicht/include/utfwrapping.h */
     bool breakable (wchar_t c)
     {
 	    if ((c > 12287 && c < 40960) || //Common CJK words

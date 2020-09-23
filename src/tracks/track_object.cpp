@@ -172,6 +172,18 @@ void TrackObject::init(const XMLNode &xml_node, scene::ISceneNode* parent,
             Track::getCurrentTrack()->addMetaLibrary(parent_library, this);
         }
     }
+<<<<<<< HEAD
+=======
+    else if (type == "sfx-emitter")
+    {
+        // FIXME: at this time sound emitters are just disabled in multiplayer
+        //        otherwise the sounds would be constantly heard, for networking
+        //        the index of item needs to be same so we create and disable it
+        //        in TrackObjectPresentationSound constructor
+        m_presentation = new TrackObjectPresentationSound(xml_node, parent,
+            RaceManager::get()->getNumLocalPlayers() > 1);
+    }
+>>>>>>> 94f4a6f644ac424543f551fc9519bfb00e3a3fab
     else if (type == "action-trigger")
     {
         std::string action;
@@ -377,7 +389,9 @@ void TrackObject::init(const XMLNode &xml_node, scene::ISceneNode* parent,
         }
         catch (std::exception& e)
         {
+#ifndef SERVER_ONLY
             Log::debug("TrackObject", e.what());
+#endif
         }
     }
 
@@ -551,6 +565,24 @@ void TrackObject::update(float dt)
     if (m_animator) m_animator->updateWithWorldTicks(true/*has_physics*/);
 }   // update
 
+<<<<<<< HEAD
+=======
+
+// ----------------------------------------------------------------------------
+/** This reset all physical object moved by 3d animation back to current ticks
+ */
+void TrackObject::resetAfterRewind()
+{
+    if (!m_animator || !m_physical_object)
+        return;
+    m_animator->updateWithWorldTicks(true/*has_physics*/);
+    btTransform new_trans;
+    m_physical_object->getMotionState()->getWorldTransform(new_trans);
+    m_physical_object->getBody()->setCenterOfMassTransform(new_trans);
+    m_physical_object->getBody()->saveKinematicState(stk_config->ticks2Time(1));
+}   // resetAfterRewind
+
+>>>>>>> 94f4a6f644ac424543f551fc9519bfb00e3a3fab
 // ----------------------------------------------------------------------------
 /** Does a raycast against the track object. The object must have a physical
  *  object.
@@ -689,24 +721,11 @@ void TrackObject::addChild(TrackObject* child)
 // scripting function
 void TrackObject::moveTo(const Scripting::SimpleVec3* pos, bool isAbsoluteCoord)
 {
-    TrackObjectPresentationLibraryNode *libnode =
-        dynamic_cast<TrackObjectPresentationLibraryNode*>(m_presentation);
-    if (libnode != NULL)
-    {
-        libnode->move(core::vector3df(pos->getX(), pos->getY(), pos->getZ()),
-            core::vector3df(0.0f, 0.0f, 0.0f), // TODO: preserve rotation
-            core::vector3df(1.0f, 1.0f, 1.0f), // TODO: preserve scale
-            isAbsoluteCoord,
-            true /* moveChildrenPhysicalBodies */);
-    }
-    else
-    {
-        move(core::vector3df(pos->getX(), pos->getY(), pos->getZ()),
-            core::vector3df(0.0f, 0.0f, 0.0f), // TODO: preserve rotation
-            core::vector3df(1.0f, 1.0f, 1.0f), // TODO: preserve scale
-            true, // updateRigidBody
-            isAbsoluteCoord);
-    }
+    move(core::vector3df(pos->getX(), pos->getY(), pos->getZ()),
+        core::vector3df(0.0f, 0.0f, 0.0f), // TODO: preserve rotation
+        core::vector3df(1.0f, 1.0f, 1.0f), // TODO: preserve scale
+        true, // updateRigidBody
+        isAbsoluteCoord);
 }
 
 // ----------------------------------------------------------------------------
@@ -751,7 +770,7 @@ bool TrackObject::joinToMainTrack()
 {
     // If no physical object or there is animator, skip it
     // Also no joining if will affect kart (like moveable, flatten...)
-    if (!isEnabled() || !m_physical_object || m_animator ||
+    if (!isEnabled() || !m_physical_object || hasAnimatorRecursively() ||
         m_physical_object->isDynamic() || m_physical_object->isCrashReset() ||
         m_physical_object->isExplodeKartObject() ||
         m_physical_object->isFlattenKartObject())
@@ -772,3 +791,27 @@ bool TrackObject::joinToMainTrack()
 uint32_t TrackObject::objectID() const {
     return m_render_info? m_render_info->objectId() : 0;
 }
+// ----------------------------------------------------------------------------
+TrackObject* TrackObject::cloneToChild()
+{
+    // Only clone object that is enabled and has a physical object
+    // Soccer ball is made disabled by soccer world to hide initially
+    if ((isEnabled() || m_soccer_ball) && m_physical_object)
+    {
+        TrackObject* to_clone = new TrackObject(*this);
+        // We handle visibility condition in main process already
+        to_clone->m_visibility_condition.clear();
+        to_clone->m_presentation = NULL;
+        to_clone->m_render_info.reset();
+        if (m_animator)
+            to_clone->m_animator = m_animator->clone(to_clone);
+        to_clone->m_parent_library = NULL;
+        to_clone->m_movable_children.clear();
+        to_clone->m_children.clear();
+        to_clone->m_physical_object = m_physical_object->clone(to_clone);
+        // All track objects need to be initially enabled in init
+        to_clone->m_enabled = true;
+        return to_clone;
+    }
+    return NULL;
+}   // joinToMainTrack

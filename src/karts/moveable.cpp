@@ -62,7 +62,9 @@ void Moveable::updateGraphics(const Vec3& offset_xyz,
                               const btQuaternion& rotation)
 {
 #ifndef SERVER_ONLY
-    Vec3 xyz = getTrans().getOrigin() + offset_xyz;
+    if (!m_node)
+        return;
+    Vec3 xyz = getSmoothedTrans().getOrigin() + offset_xyz;
     m_node->setPosition(xyz.toIrrVector());
     btQuaternion r_all = getTrans().getRotation() * rotation;
     if(btFuzzyZero(r_all.getX()) && btFuzzyZero(r_all.getY()-0.70710677f) &&
@@ -86,7 +88,8 @@ void Moveable::reset()
         m_body->setCenterOfMassTransform(m_transform);
     }
 #ifndef SERVER_ONLY
-    m_node->setVisible(true);  // In case that the objects was eliminated
+    if (m_node)
+        m_node->setVisible(true);  // In case that the objects was eliminated
 #endif
 
     Vec3 up       = getTrans().getBasis().getColumn(1);

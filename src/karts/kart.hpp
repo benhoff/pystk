@@ -262,7 +262,7 @@ protected:
 public:
                    Kart(const std::string& ident, unsigned int world_kart_id,
                         int position, const btTransform& init_transform,
-                        PerPlayerDifficulty difficulty,
+                        HandicapLevel handicap,
                         std::shared_ptr<RenderInfo> ri);
     virtual       ~Kart();
     virtual void   init(RaceManager::KartType type) OVERRIDE;
@@ -299,7 +299,7 @@ public:
     virtual void   setController(Controller *controller) OVERRIDE;
     virtual void   setXYZ(const Vec3& a) OVERRIDE;
     virtual void changeKart(const std::string& new_ident,
-                            PerPlayerDifficulty difficulty,
+                            HandicapLevel handicap,
                             std::shared_ptr<RenderInfo> ri) OVERRIDE;
 
     // ========================================================================================
@@ -473,8 +473,7 @@ public:
             { return m_previous_xyz[m_xyz_history_size-1]; }
     // ----------------------------------------------------------------------------------------
     /** Returns a more recent different previous position */
-    virtual const Vec3& getRecentPreviousXYZ() const OVERRIDE
-            { return m_previous_xyz[m_xyz_history_size/5]; }
+    virtual const Vec3& getRecentPreviousXYZ() const OVERRIDE;
     // ----------------------------------------------------------------------------------------
     /** Returns the time at which the recent previous position occured */
     virtual const float getRecentPreviousXYZTime() const OVERRIDE
@@ -544,7 +543,6 @@ public:
     // ----------------------------------------------------------------------------------------
     virtual Stars* getStarsEffect() const OVERRIDE
                                                { return m_stars_effect.get(); }
-
 };   // Kart
 
 

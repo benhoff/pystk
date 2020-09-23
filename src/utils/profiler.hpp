@@ -21,6 +21,7 @@
 #include <irrlicht.h>
 
 #include <assert.h>
+#include <atomic>
 #include <iostream>
 #include <list>
 #include <map>
@@ -228,8 +229,8 @@ private:
     /** Buffer for the GPU times (in ms). */
     std::vector<int> m_gpu_times;
 
-    /** Counts the threads used, i.e. registered in m_thread_mapping. */
-    int m_threads_used;
+    /** Counts the threads used. */
+    std::atomic<int> m_threads_used;
 
     /** Index of the current frame in the buffer. */
     int m_current_frame;

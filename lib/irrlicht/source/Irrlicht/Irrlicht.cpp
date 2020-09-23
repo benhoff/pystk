@@ -38,8 +38,9 @@
 #include "MacOSX/CIrrDeviceOffScreenMacOSX.h"
 #endif
 
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
-#include "CIrrDeviceSDL.h"
+
+#ifdef SERVER_ONLY
+#include "CIrrDeviceServer.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_IOS_DEVICE_
@@ -59,7 +60,7 @@ namespace irr
 	IRRLICHT_API IrrlichtDevice* IRRCALLCONV createDevice(video::E_DRIVER_TYPE driverType,
 			const core::dimension2d<u32>& windowSize,
 			u32 bits, bool fullscreen,
-			bool stencilbuffer, bool vsync, IEventReceiver* res,
+			bool stencilbuffer, int swapInterval, IEventReceiver* res,
             io::IFileSystem *file_system)
 	{
 		SIrrlichtCreationParameters p;
@@ -68,9 +69,9 @@ namespace irr
 		p.Bits = (u8)bits;
 		p.Fullscreen = fullscreen;
 		p.Stencilbuffer = stencilbuffer;
-		p.Vsync = vsync;
+		p.SwapInterval = swapInterval;
 		p.EventReceiver = res;
-        p.FileSystem = file_system;
+		p.FileSystem = file_system;
 
 		return createDeviceEx(p);
 	}
@@ -112,12 +113,6 @@ namespace irr
 			device_type = EIDT_X11;
 		}
 #endif
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
-		if (strcmp(irr_device_type, "sdl") == 0)
-		{
-			device_type = EIDT_SDL;
-		}
-#endif
 #ifdef _IRR_COMPILE_WITH_ANDROID_DEVICE_
 		if (strcmp(irr_device_type, "android") == 0)
 		{
@@ -134,9 +129,8 @@ namespace irr
 		SIrrlichtCreationParameters creation_params = params;
 		overrideDeviceType(creation_params.DeviceType);
 
-#ifdef _IRR_COMPILE_WITH_IOS_DEVICE_
-        if (creation_params.DeviceType == EIDT_IOS || (!dev && creation_params.DeviceType == EIDT_BEST))
-            dev = new CIrrDeviceiOS(creation_params);
+#ifdef SERVER_ONLY
+		dev = new CIrrDeviceServer(creation_params);
 #endif
 
 #ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
@@ -170,10 +164,6 @@ namespace irr
 			dev = new CIrrDeviceLinux(creation_params);
 #endif
 
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
-		if (creation_params.DeviceType == EIDT_SDL || (!dev && creation_params.DeviceType == EIDT_BEST))
-			dev = new CIrrDeviceSDL(creation_params);
-#endif
 
 #ifdef _IRR_COMPILE_WITH_ANDROID_DEVICE_
 		if (creation_params.DeviceType == EIDT_ANDROID || (!dev && creation_params.DeviceType == EIDT_BEST))

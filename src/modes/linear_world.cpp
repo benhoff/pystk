@@ -143,6 +143,29 @@ void LinearWorld::reset(bool restart)
  */
 void LinearWorld::update(int ticks)
 {
+    auto sl = LobbyProtocol::get<ServerLobby>();
+    if (sl && getPhase() == RACE_PHASE)
+    {
+        bool all_players_finished = true;
+        bool has_ai = false;
+        for (unsigned i = 0; i < RaceManager::get()->getNumPlayers(); i++)
+        {
+            auto npp =
+                RaceManager::get()->getKartInfo(i).getNetworkPlayerProfile().lock();
+            if (!npp)
+                continue;
+            if (npp)
+            {
+                auto peer = npp->getPeer();
+                if ((peer && peer->isAIPeer()) || sl->isAIProfile(npp))
+                    has_ai = true;
+                else if (!getKart(i)->hasFinishedRace())
+                    all_players_finished = false;
+            }
+        }
+        if (all_players_finished && has_ai)
+            m_finish_timeout = -1.0f;
+    }
     if (getPhase() == RACE_PHASE &&
         m_finish_timeout != std::numeric_limits<float>::max())
     {
@@ -267,7 +290,7 @@ void LinearWorld::newLap(unsigned int kart_index)
         return;
     }
 
-    const int lap_count = race_manager->getNumLaps();
+    const int lap_count = RaceManager::get()->getNumLaps();
 
     // Only increase the lap counter and set the new time if the
     // kart hasn't already finished the race (otherwise the race_gui
@@ -307,7 +330,7 @@ void LinearWorld::newLap(unsigned int kart_index)
     // Race finished
     // We compute the exact moment the kart crossed the line
     // This way, even with poor framerate, we get a time significant to the ms
-    if(kart_info.m_finished_laps >= race_manager->getNumLaps() && raceHasLaps())
+    if(kart_info.m_finished_laps >= RaceManager::get()->getNumLaps() && raceHasLaps())
     {
         {
             float curr_distance_after_line = getDistanceDownTrackForKart(kart->getWorldKartId(),false);
@@ -317,8 +340,11 @@ void LinearWorld::newLap(unsigned int kart_index)
             float prev_distance_before_line = Track::getCurrentTrack()->getTrackLength()
                                               - prev_sector.getDistanceFromStart(false);
 
-            float finish_proportion = curr_distance_after_line
-                                      / (prev_distance_before_line + curr_distance_after_line);
+            float finish_proportion = 0.0f;
+            // Workaround against some bugs caused by the "distance is zero on a band" issue, see #4109
+            if (curr_distance_after_line + prev_distance_before_line != 0.0f)
+                finish_proportion =   curr_distance_after_line
+                                   / (prev_distance_before_line + curr_distance_after_line);
         
             float prev_time = kart->getRecentPreviousXYZTime();
             float finish_time = prev_time*finish_proportion + getTime()*(1.0f-finish_proportion);
@@ -429,7 +455,7 @@ float LinearWorld::estimateFinishTimeForKart(AbstractKart* kart)
 {
     const KartInfo &kart_info = m_kart_info[kart->getWorldKartId()];
 
-    float full_distance = race_manager->getNumLaps()
+    float full_distance = RaceManager::get()->getNumLaps()
                         * Track::getCurrentTrack()->getTrackLength();
 
     if(full_distance == 0)
@@ -599,7 +625,7 @@ void LinearWorld::updateRacePosition()
         // first kart is doing its last lap.
         if(!m_faster_music_active                                  &&
             p == 1                                                 &&
-            kart_info.m_finished_laps == race_manager->getNumLaps() - 1 &&
+            kart_info.m_finished_laps == RaceManager::get()->getNumLaps() - 1 &&
             useFastMusicNearEnd()                                       )
         {
             m_faster_music_active=true;
@@ -692,7 +718,7 @@ std::pair<uint32_t, uint32_t> LinearWorld::getGameStartedProgress() const
         progress.second = (uint32_t)(
             getOverallDistance(slowest_kart->getWorldKartId()) /
             (Track::getCurrentTrack()->getTrackLength() *
-            (float)race_manager->getNumLaps()) * 100.0f);
+            (float)RaceManager::get()->getNumLaps()) * 100.0f);
     }
     return progress;
 }   // getGameStartedProgress
@@ -700,7 +726,7 @@ std::pair<uint32_t, uint32_t> LinearWorld::getGameStartedProgress() const
 // ----------------------------------------------------------------------------
 void LinearWorld::handleServerCheckStructureCount(unsigned count)
 {
-    if (count != CheckManager::get()->getCheckStructureCount())
+    if (count != Track::getCurrentTrack()->getCheckManager()->getCheckStructureCount())
     {
         Log::warn("LinearWorld",
             "Server has different check structures size.");

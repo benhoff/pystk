@@ -95,9 +95,9 @@
  */
 Kart::Kart (const std::string& ident, unsigned int world_kart_id,
             int position, const btTransform& init_transform,
-            PerPlayerDifficulty difficulty, std::shared_ptr<RenderInfo> ri)
+            HandicapLevel handicap, std::shared_ptr<RenderInfo> ri)
      : AbstractKart(ident, world_kart_id, position, init_transform,
-             difficulty, ri)
+             handicap, ri)
 
 #if defined(WIN32) && !defined(__CYGWIN__) && !defined(__MINGW32__)
 #  pragma warning(1:4355)
@@ -112,7 +112,6 @@ Kart::Kart (const std::string& ident, unsigned int world_kart_id,
     m_collision_particles  = NULL;
     m_controller           = NULL;
     m_saved_controller     = NULL;
-    m_stars_effect         = NULL;
     m_consumption_per_tick = stk_config->ticks2Time(1) *
                              m_kart_properties->getNitroConsumption();
     m_fire_clicked         = 0;
@@ -158,20 +157,14 @@ void Kart::init(RaceManager::KartType type)
 
 // ----------------------------------------------------------------------------
 void Kart::changeKart(const std::string& new_ident,
-                      PerPlayerDifficulty difficulty,
+                      HandicapLevel handicap,
                       std::shared_ptr<RenderInfo> ri)
 {
-    AbstractKart::changeKart(new_ident, difficulty, ri);
+    AbstractKart::changeKart(new_ident, handicap, ri);
     m_kart_model->setKart(this);
 
-#ifdef SERVER_ONLY
-    bool animations = false;  // server never animates
-#else
-    bool animations = UserConfigParams::m_animated_characters;
-#endif
     scene::ISceneNode* old_node = m_node;
-
-    loadData(m_type, animations);
+    loadData(m_type, UserConfigParams::m_animated_characters);
     m_wheel_box = NULL;
 
     if (LocalPlayerController* lpc =
@@ -209,7 +202,7 @@ Kart::~Kart()
     // Ghost karts don't have a body
     if(m_body)
     {
-        Physics::getInstance()->removeKart(this);
+        Physics::get()->removeKart(this);
     }
 
     delete m_max_speed;
@@ -239,8 +232,8 @@ void Kart::reset()
     // don't have one).
     if(m_body)
     {
-        Physics::getInstance()->removeKart(this);
-        Physics::getInstance()->addKart(this);
+        Physics::get()->removeKart(this);
+        Physics::get()->addKart(this);
     }
 
     m_min_nitro_ticks = 0;
@@ -249,7 +242,8 @@ void Kart::reset()
                              m_kart_properties->getNitroConsumption();
 
     // Reset star effect in case that it is currently being shown.
-    m_stars_effect->reset();
+    if (m_stars_effect)
+        m_stars_effect->reset();
     m_max_speed->reset();
     m_powerup->reset();
 
@@ -303,7 +297,8 @@ void Kart::reset()
     m_flying               = false;
     m_startup_boost        = 0.0f;
 
-    m_node->setScale(core::vector3df(1.0f, 1.0f, 1.0f));
+    if (m_node)
+        m_node->setScale(core::vector3df(1.0f, 1.0f, 1.0f));
 
     for (int i=0;i<m_xyz_history_size;i++)
     {
@@ -654,7 +649,7 @@ void Kart::createPhysics()
     // Create the actual vehicle
     // -------------------------
     m_vehicle_raycaster.reset(
-        new btKartRaycaster(Physics::getInstance()->getPhysicsWorld(),
+        new btKartRaycaster(Physics::get()->getPhysicsWorld(),
                             stk_config->m_smooth_normals &&
                             Track::getCurrentTrack()->smoothNormals()));
     m_vehicle.reset(new btKart(m_body.get(), m_vehicle_raycaster.get(), this));
@@ -809,9 +804,9 @@ void Kart::finishedRace(float time, bool from_server)
     if (m_finished_race) return;
 
     const bool is_linear_race =
-        race_manager->getMinorMode() == RaceManager::MINOR_MODE_NORMAL_RACE ||
-        race_manager->getMinorMode() == RaceManager::MINOR_MODE_TIME_TRIAL  ||
-        race_manager->getMinorMode() == RaceManager::MINOR_MODE_FOLLOW_LEADER;
+        RaceManager::get()->getMinorMode() == RaceManager::MINOR_MODE_NORMAL_RACE ||
+        RaceManager::get()->getMinorMode() == RaceManager::MINOR_MODE_TIME_TRIAL  ||
+        RaceManager::get()->getMinorMode() == RaceManager::MINOR_MODE_FOLLOW_LEADER;
 
     m_finished_race = true;
 
@@ -819,18 +814,17 @@ void Kart::finishedRace(float time, bool from_server)
 
     m_controller->finishedRace(time);
     m_kart_model->finishedRace();
-    race_manager->kartFinishedRace(this, time);
+    RaceManager::get()->kartFinishedRace(this, time);
 
     // If this is spare tire kart, end now
     if (dynamic_cast<SpareTireAI*>(m_controller) != NULL) return;
 
     if (is_linear_race && m_controller->isPlayerController() && !m_eliminated)
     {
-        
     }
 
-    if (race_manager->isLinearRaceMode() || race_manager->isBattleMode() ||
-        race_manager->isSoccerMode()     || race_manager->isEggHuntMode())
+    if (RaceManager::get()->isLinearRaceMode() || RaceManager::get()->isBattleMode() ||
+        RaceManager::get()->isSoccerMode()     || RaceManager::get()->isEggHuntMode())
     {
         // Save for music handling in race result gui
         setRaceResult();
@@ -853,8 +847,8 @@ void Kart::finishedRace(float time, bool from_server)
 //-----------------------------------------------------------------------------
 void Kart::setRaceResult()
 {
-    if (race_manager->getMinorMode() == RaceManager::MINOR_MODE_NORMAL_RACE ||
-        race_manager->getMinorMode() == RaceManager::MINOR_MODE_TIME_TRIAL)
+    if (RaceManager::get()->getMinorMode() == RaceManager::MINOR_MODE_NORMAL_RACE ||
+        RaceManager::get()->getMinorMode() == RaceManager::MINOR_MODE_TIME_TRIAL)
     {
         if (m_controller->isLocalPlayerController()) // if player is on this computer
         {
@@ -875,28 +869,28 @@ void Kart::setRaceResult()
                 m_race_result = false;
         }
     }
-    else if (race_manager->getMinorMode() == RaceManager::MINOR_MODE_FOLLOW_LEADER ||
-             race_manager->getMinorMode() == RaceManager::MINOR_MODE_3_STRIKES)
+    else if (RaceManager::get()->getMinorMode() == RaceManager::MINOR_MODE_FOLLOW_LEADER ||
+             RaceManager::get()->getMinorMode() == RaceManager::MINOR_MODE_3_STRIKES)
     {
         // the kart wins if it isn't eliminated
         m_race_result = !this->isEliminated();
     }
-    else if (race_manager->getMinorMode() == RaceManager::MINOR_MODE_FREE_FOR_ALL)
+    else if (RaceManager::get()->getMinorMode() == RaceManager::MINOR_MODE_FREE_FOR_ALL)
     {
         FreeForAll* ffa = dynamic_cast<FreeForAll*>(World::getWorld());
         m_race_result = ffa->getKartFFAResult(getWorldKartId());
     }
-    else if (race_manager->getMinorMode() == RaceManager::MINOR_MODE_CAPTURE_THE_FLAG)
+    else if (RaceManager::get()->getMinorMode() == RaceManager::MINOR_MODE_CAPTURE_THE_FLAG)
     {
         CaptureTheFlag* ctf = dynamic_cast<CaptureTheFlag*>(World::getWorld());
         m_race_result = ctf->getKartCTFResult(getWorldKartId());
     }
-    else if (race_manager->getMinorMode() == RaceManager::MINOR_MODE_SOCCER)
+    else if (RaceManager::get()->getMinorMode() == RaceManager::MINOR_MODE_SOCCER)
     {
         SoccerWorld* sw = dynamic_cast<SoccerWorld*>(World::getWorld());
         m_race_result = sw->getKartSoccerResult(this->getWorldKartId());
     }
-    else if (race_manager->getMinorMode() == RaceManager::MINOR_MODE_EASTER_EGG)
+    else if (RaceManager::get()->getMinorMode() == RaceManager::MINOR_MODE_EASTER_EGG)
     {
         // Easter egg mode only has one player, so always win
         m_race_result = true;
@@ -944,9 +938,9 @@ void Kart::collectedItem(ItemState *item_state)
             ((World::getWorld()->getTicksSinceStart() / 10) % 2 == 0) ?
             true : false;
         m_max_speed->setSlowdown(MaxSpeed::MS_DECREASE_BUBBLE,
-                                 m_kart_properties->getBubblegumSpeedFraction() ,
-                                 m_kart_properties->getBubblegumFadeInTicks(),
-                                 m_bubblegum_ticks);
+            m_kart_properties->getBubblegumSpeedFraction() ,
+            stk_config->time2Ticks(m_kart_properties->getBubblegumFadeInTime()),
+            m_bubblegum_ticks);
         break;
     default        : break;
     }   // switch TYPE
@@ -1066,7 +1060,8 @@ void Kart::decreaseShieldTime()
  */
 void Kart::showStarEffect(float t)
 {
-    m_stars_effect->showFor(t);
+    if (m_stars_effect)
+        m_stars_effect->showFor(t);
 }   // showStarEffect
 
 //-----------------------------------------------------------------------------
@@ -1074,7 +1069,7 @@ void Kart::eliminate()
 {
     if (!getKartAnimation())
     {
-        Physics::getInstance()->removeKart(this);
+        Physics::get()->removeKart(this);
     }
     if (m_stars_effect)
     {
@@ -1096,7 +1091,8 @@ void Kart::eliminate()
     if (m_shadow)
         m_shadow->update(false);
 #endif
-    m_node->setVisible(false);
+    if (m_node)
+        m_node->setVisible(false);
 }   // eliminate
 
 //-----------------------------------------------------------------------------
@@ -1442,7 +1438,7 @@ void Kart::update(int ticks)
     }   // if there is material
     PROFILER_POP_CPU_MARKER();
 
-    ItemManager::get()->checkItemHit(this);
+    Track::getCurrentTrack()->getItemManager()->checkItemHit(this);
 
     const bool emergency = has_animation_before;
 
@@ -1498,7 +1494,7 @@ void Kart::update(int ticks)
         if (!has_animation_before)
         {
             HitEffect *effect =  new Explosion(getXYZ(), "jump_explosion.xml");
-            projectile_manager->addHitEffect(effect);
+            ProjectileManager::get()->addHitEffect(effect);
         }
     }
 
@@ -1959,7 +1955,8 @@ void Kart::crashed(const Material *m, const Vec3 &normal)
     {
 #ifndef SERVER_ONLY
         std::string particles = m->getCrashResetParticles();
-        if (particles.size() > 0 && UserConfigParams::m_particles_effects > 0)
+        if (!GUIEngine::isNoGraphics() &&
+            particles.size() > 0 && UserConfigParams::m_particles_effects > 0)
         {
             ParticleKind* kind =
                 ParticleKindManager::get()->getParticles(particles);
@@ -2353,11 +2350,13 @@ void Kart::updateFlying()
 void Kart::loadData(RaceManager::KartType type, bool is_animated_model)
 {
     bool always_animated = (type == RaceManager::KT_PLAYER &&
-        race_manager->getNumLocalPlayers() == 1);
-    m_node = m_kart_model->attachModel(is_animated_model, always_animated);
+        RaceManager::get()->getNumLocalPlayers() == 1);
+    if (!GUIEngine::isNoGraphics())
+        m_node = m_kart_model->attachModel(is_animated_model, always_animated);
 
 #ifdef DEBUG
-    m_node->setName( (getIdent()+"(lod-node)").c_str() );
+    if (m_node)
+        m_node->setName( (getIdent()+"(lod-node)").c_str() );
 #endif
 
     // Attachment must be created after attachModel, since only then the
@@ -2550,10 +2549,10 @@ void Kart::kartIsInRestNow()
 void Kart::updateGraphics(float dt)
 {
 #ifndef SERVER_ONLY
-    if (isSquashed() &&
+    if (m_node && isSquashed() &&
         m_node->getScale() != core::vector3df(1.0f, 0.5f, 1.0f))
         setSquashGraphics();
-    else if (!isSquashed() &&
+    else if (m_node && !isSquashed() &&
         m_node->getScale() != core::vector3df(1.0f, 1.0f, 1.0f))
         unsetSquash();
 #endif
@@ -2562,13 +2561,16 @@ void Kart::updateGraphics(float dt)
 
     // update star effect (call will do nothing if stars are not activated)
     // Remove it if no invulnerability
-    if (!isInvulnerable() && m_stars_effect->isEnabled())
+    if (m_stars_effect)
     {
-        m_stars_effect->reset();
-        m_stars_effect->update(1);
+        if (!isInvulnerable() && m_stars_effect->isEnabled())
+        {
+            m_stars_effect->reset();
+            m_stars_effect->update(1);
+        }
+        else
+            m_stars_effect->update(dt);
     }
-    else
-        m_stars_effect->update(dt);
 
     // Update particle effects (creation rate, and emitter size
     // depending on speed)
@@ -2719,15 +2721,25 @@ const Vec3& Kart::getNormal() const
 } // getNormal
 
 // ------------------------------------------------------------------------
+/** Returns a more recent different previous position */
+const Vec3& Kart::getRecentPreviousXYZ() const
+{
+    //Not the most recent, because the angle variations would be too
+    //irregular on some tracks whose roads are not smooth enough
+    return m_previous_xyz[m_xyz_history_size/5];
+}   // getRecentPreviousXYZ
+
+
+// ------------------------------------------------------------------------
 const video::SColor& Kart::getColor() const
 {
     return m_kart_properties->getColor();
-}   // getColor
+} // getColor
 
 // ------------------------------------------------------------------------
 bool Kart::isVisible() const
 {
     return m_node && m_node->isVisible();
-}   // isVisible
+} // isVisible
 
 /* EOF */

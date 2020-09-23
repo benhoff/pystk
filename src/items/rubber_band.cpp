@@ -204,10 +204,10 @@ void RubberBand::update(int ticks)
         diff.normalize();   // diff can't be zero here
         m_owner->getBody()->applyCentralForce(diff*force);
         m_owner->increaseMaxSpeed(MaxSpeed::MS_INCREASE_RUBBER,
-                                  kp->getPlungerBandSpeedIncrease(),
-                                  /*engine_force*/ 0.0f,
-                                  /*duration*/stk_config->time2Ticks(0.1f),
-                                  kp->getPlungerBandFadeOutTicks()        );
+            kp->getPlungerBandSpeedIncrease(),
+            /*engine_force*/ 0.0f,
+            /*duration*/stk_config->time2Ticks(0.1f),
+            stk_config->time2Ticks(kp->getPlungerBandFadeOutTime()));
         if(m_attached_state==RB_TO_KART)
             m_hit_kart->getBody()->applyCentralForce(diff*(-force));
     }
@@ -233,7 +233,7 @@ void RubberBand::checkForHit(const Vec3 &k, const Vec3 &p)
         m_owner->getBody()->getBroadphaseHandle()->m_collisionFilterGroup = 0;
 
     // Do the raycast
-    Physics::getInstance()->getPhysicsWorld()->rayTest(k, p, ray_callback);
+    Physics::get()->getPhysicsWorld()->rayTest(k, p, ray_callback);
     // Reset collision groups
     m_plunger->getBody()->getBroadphaseHandle()->m_collisionFilterGroup = old_plunger_group;
     if(m_owner->getBody()->getBroadphaseHandle())

@@ -45,7 +45,6 @@ std::vector<scene::IMesh *>  ItemManager::m_item_mesh;
 std::vector<scene::IMesh *>  ItemManager::m_item_lowres_mesh;
 std::vector<video::SColorf>  ItemManager::m_glow_color;
 bool                         ItemManager::m_disable_item_collection = false;
-std::shared_ptr<ItemManager> ItemManager::m_item_manager;
 std::mt19937                 ItemManager::m_random_engine;
 uint32_t                     ItemManager::m_random_seed = 0;
 

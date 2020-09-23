@@ -56,6 +56,10 @@ public:
     static void destroy();
     static void getDate(int *day=NULL, int *month=NULL, int *year=NULL);
 
+    // ------------------------------------------------------------------------
+    /** Get the time in string for game server logging prefix (thread-safe)*/
+    static std::string getLogTime();
+    // ------------------------------------------------------------------------
     /** Converts the time in this object to a human readable string. */
     static std::string toString(const TimeType &tt);
     // ------------------------------------------------------------------------

@@ -114,3 +114,13 @@ void ThreeDAnimation::updateWithWorldTicks(bool has_physics)
         m_object->move(xyz.toIrrVector(), hpr, scale.toIrrVector(), true, false);
     }
 }   // update
+
+// ----------------------------------------------------------------------------
+/** Copying to child process of track object.
+ */
+ThreeDAnimation* ThreeDAnimation::clone(TrackObject* obj)
+{
+    ThreeDAnimation* animation = new ThreeDAnimation(*this);
+    animation->m_object = obj;
+    return animation;
+}   // clone

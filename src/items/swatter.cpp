@@ -271,8 +271,8 @@ bool Swatter::updateAndTestFinished(int ticks)
                     squashThingsAround();
                     m_animation_phase = SWATTER_FROM_TARGET;
                     const int end_ticks = ticks_start + 60;
-                    if (race_manager->isBattleMode() ||
-                        race_manager->isSoccerMode())
+                    if (RaceManager::get()->isBattleMode() ||
+                        RaceManager::get()->isSoccerMode())
                     {
                         // Remove swatter from kart in arena gameplay
                         // after one successful hit
@@ -395,7 +395,7 @@ void Swatter::squashThingsAround()
     if (has_created_explosion_animation)
     {
         HitEffect *he = new Explosion(m_kart->getXYZ(), "explosion.xml");
-        projectile_manager->addHitEffect(he);
+        ProjectileManager::get()->addHitEffect(he);
     }   // if kart has bomb attached
 
     // TODO: squash items

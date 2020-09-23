@@ -25,6 +25,7 @@
 #include "graphics/render_info.hpp"
 #include "graphics/sp/sp_mesh.hpp"
 #include "graphics/sp/sp_mesh_node.hpp"
+#include "guiengine/engine.hpp"
 #include "items/item_manager.hpp"
 #include "karts/abstract_kart.hpp"
 #include "modes/world.hpp"
@@ -32,7 +33,6 @@
 #include "tracks/arena_graph.hpp"
 #include "tracks/drive_graph.hpp"
 #include "tracks/drive_node.hpp"
-#include "tracks/track.hpp"
 #include "utils/constants.hpp"
 #include "utils/string_utils.hpp"
 #include "utils/objecttype.h"
@@ -141,7 +141,7 @@ void ItemState::collected(const AbstractKart *kart)
         m_ticks_till_return = stk_config->time2Ticks(2.0f);
     }
 
-    if (race_manager->isBattleMode())
+    if (RaceManager::get()->isBattleMode())
     {
         m_ticks_till_return *= 3;
     }
@@ -188,7 +188,9 @@ Item::Item(ItemType type, const Vec3& xyz, const Vec3& normal,
 
     if (lowres_mesh != NULL)
     {
-        lodnode->add(35, meshnode, true);
+        LODNode* lodnode =
+            new LODNode("item", irr_driver->getSceneManager()->getRootSceneNode(),
+            irr_driver->getSceneManager());
         scene::ISceneNode* meshnode =
             irr_driver->addMesh(lowres_mesh,
                                 StringUtils::insertValues("item_lo_%i", (int)type), NULL, ri_);
@@ -198,10 +200,11 @@ Item::Item(ItemType type, const Vec3& xyz, const Vec3& normal,
     {
         lodnode->add(100, meshnode, true);
     }
-    m_node              = lodnode;
     setType(type);
     handleNewMesh(getGrahpicalType());
 
+    if (!m_node)
+        return;
 #ifdef DEBUG
     std::string debug_name("item: ");
     debug_name += getType();
@@ -330,13 +333,13 @@ void Item::handleNewMesh(ItemType type)
 #ifndef SERVER_ONLY
     if (m_node == NULL)
         return;
-    setMesh(ItemManager::get()->getItemModel(type),
-        ItemManager::get()->getItemLowResolutionModel(type));
+    setMesh(ItemManager::getItemModel(type),
+        ItemManager::getItemLowResolutionModel(type));
     for (auto* node : m_node->getAllNodes())
     {
         SP::SPMeshNode* spmn = dynamic_cast<SP::SPMeshNode*>(node);
         if (spmn)
-            spmn->setGlowColor(ItemManager::get()->getGlowColor(type));
+            spmn->setGlowColor(ItemManager::getGlowColor(type));
     }
     Vec3 hpr;
     hpr.setHPR(getOriginalRotation());

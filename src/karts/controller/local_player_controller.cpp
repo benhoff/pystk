@@ -49,17 +49,16 @@
  */
 LocalPlayerController::LocalPlayerController(AbstractKart *kart,
                                              const int local_player_id,
-                                             PerPlayerDifficulty d)
+                                             HandicapLevel h)
                      : PlayerController(kart)
 {
-//     m_has_started = false;
-    m_difficulty = d;
+    m_handicap = h;
 
     // Keep a pointer to the camera to remove the need to search for
     // the right camera once per frame later.
-    Camera *camera = Camera::createCamera(kart, local_player_id);
+    m_camera_index = -1;
 
-    m_camera_index = camera->getIndex();
+    // m_camera_index = camera->getIndex();
 
     initParticleEmitter();
 }   // LocalPlayerController
@@ -78,7 +77,8 @@ void LocalPlayerController::initParticleEmitter()
     m_sky_particles_emitter = nullptr;
     Track *track = Track::getCurrentTrack();
 #ifndef SERVER_ONLY
-    if (UserConfigParams::m_particles_effects > 1 &&
+    if (!GUIEngine::isNoGraphics() &&
+        UserConfigParams::m_particles_effects > 1 &&
         track->getSkyParticles() != NULL)
     {
         track->getSkyParticles()->setBoxSizeXZ(150.0f, 150.0f);
@@ -172,8 +172,9 @@ void LocalPlayerController::update(int ticks)
     // look backward when the player requests or
     // if automatic reverse camera is active
 #ifndef SERVER_ONLY
-    Camera *camera = Camera::getCamera(m_camera_index);
-    if (camera->getType() != Camera::CM_TYPE_END)
+    Camera *camera = NULL;
+    camera = Camera::getCamera(m_camera_index);
+    if (camera && camera->getType() != Camera::CM_TYPE_END)
     {
         if (m_controls->getLookBack() || (UserConfigParams::m_reverse_look_threshold > 0 &&
             m_kart->getSpeed() < -UserConfigParams::m_reverse_look_threshold))
@@ -244,7 +245,8 @@ void LocalPlayerController::setPosition(int p)
 void LocalPlayerController::finishedRace(float time)
 {
     // This will implicitly trigger setting the first end camera to be active
-    Camera::changeCamera(m_camera_index, Camera::CM_TYPE_END);
+    if (!GUIEngine::isNoGraphics())
+        Camera::changeCamera(m_camera_index, Camera::CM_TYPE_END);
 }   // finishedRace
 
 //-----------------------------------------------------------------------------
@@ -260,7 +262,8 @@ void LocalPlayerController::handleZipper()
 
 #ifndef SERVER_ONLY
     // Apply the motion blur according to the speed of the kart
-    irr_driver->giveBoost(m_camera_index);
+    if (!GUIEngine::isNoGraphics())
+        irr_driver->giveBoost(m_camera_index);
 #endif
 
 }   // handleZipper
@@ -289,7 +292,7 @@ bool LocalPlayerController::canGetAchievements() const
 }   // canGetAchievements
 
 // ----------------------------------------------------------------------------
-core::stringw LocalPlayerController::getName() const
+core::stringw LocalPlayerController::getName(bool include_handicap_string) const
 {
     return "";
 }   // getName

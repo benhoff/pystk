@@ -178,7 +178,12 @@
 
   <urls donate="https://supertuxkart.net/Donate"
         password-reset="https://online.supertuxkart.net/password-reset.php"
-        assets-download="https://downloads.sourceforge.net/project/supertuxkart/stk-assets-mobile/"/>
+        assets-download="https://github.com/supertuxkart/stk-assets-mobile/releases/download/"/>
+
+  <!-- STK will use dns query of the SRV records with these domains to get the list of
+       stun servers to use for IPv4 and IPv6. -->
+  <stun ipv4="_stunv4._udp.supertuxkart.net"
+        ipv6="_stunv6._udp.supertuxkart.net"/>
 
   <!-- Skidmark data: maximum number of skid marks, and
        time for skidmarks to fade out. Maximum number will over
@@ -587,6 +592,7 @@
   -->
   <network-capabilities>
       <capabilities name="report_player"/>
-      <capabilities name="color_emoji"/>
+      <capabilities name="soccer_fixes"/>
+      <capabilities name="ranking_changes"/>
   </network-capabilities>
 </config>

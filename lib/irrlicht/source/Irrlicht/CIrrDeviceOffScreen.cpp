@@ -136,7 +136,7 @@ bool CIrrDeviceOffScreen::initEGL()
     egl_params.force_legacy_device = CreationParams.ForceLegacyDevice;
     egl_params.handle_srgb = CreationParams.HandleSRGB;
     egl_params.with_alpha_channel = CreationParams.WithAlphaChannel;
-    egl_params.vsync_enabled = CreationParams.Vsync;
+    // egl_params.vsync_enabled = CreationParams.Vsync;
     egl_params.platform = CEGL_PLATFORM_DEVICE;
     egl_params.device_id = 0;
     if (getenv("EGL_DEVICE"))

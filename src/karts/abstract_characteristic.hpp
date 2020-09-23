@@ -111,11 +111,6 @@ public:
         WHEELS_DAMPING_RELAXATION,
         WHEELS_DAMPING_COMPRESSION,
 
-        // Camera
-        CAMERA_DISTANCE,
-        CAMERA_FORWARD_UP_ANGLE,
-        CAMERA_BACKWARD_UP_ANGLE,
-
         // Jump
         JUMP_ANIMATION_TIME,
 
@@ -296,10 +291,6 @@ public:
     float getWheelsDampingRelaxation() const;
     float getWheelsDampingCompression() const;
 
-    float getCameraDistance() const;
-    float getCameraForwardUpAngle() const;
-    float getCameraBackwardUpAngle() const;
-
     float getJumpAnimationTime() const;
 
     float getLeanMax() const;
@@ -310,8 +301,8 @@ public:
     float getAnvilSpeedFactor() const;
 
     float getParachuteFriction() const;
-    int   getParachuteDuration() const;
-    int   getParachuteDurationOther() const;
+    float getParachuteDuration() const;
+    float getParachuteDurationOther() const;
     float getParachuteDurationRankMult() const;
     float getParachuteDurationSpeedMult() const;
     float getParachuteLboundFraction() const;
