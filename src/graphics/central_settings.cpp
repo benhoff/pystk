@@ -23,7 +23,6 @@
 #include "graphics/gl_headers.hpp"
 #include "graphics/glwrap.hpp"
 #include "graphics/graphics_restrictions.hpp"
-#include "guiengine/engine.hpp"
 
 bool CentralVideoSettings::m_supports_sp = true;
 

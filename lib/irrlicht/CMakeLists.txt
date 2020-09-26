@@ -151,7 +151,7 @@ source/Irrlicht/CImageWriterJPG.cpp
 source/Irrlicht/CImageWriterPNG.cpp
 source/Irrlicht/CIrrDeviceLinux.cpp
 source/Irrlicht/CIrrDeviceOffScreen.cpp
-source/Irrlicht/CIrrDeviceSDL.cpp
+# source/Irrlicht/CIrrDeviceSDL.cpp
 source/Irrlicht/CIrrDeviceServer.cpp
 source/Irrlicht/CIrrDeviceStub.cpp
 source/Irrlicht/CLightSceneNode.cpp
@@ -282,7 +282,7 @@ source/Irrlicht/CImageWriterJPG.h
 source/Irrlicht/CImageWriterPNG.h
 source/Irrlicht/CIrrDeviceLinux.h
 source/Irrlicht/CIrrDeviceOffScreen.h
-source/Irrlicht/CIrrDeviceSDL.h
+# source/Irrlicht/CIrrDeviceSDL.h
 source/Irrlicht/CIrrDeviceServer.h
 source/Irrlicht/CIrrDeviceStub.h
 source/Irrlicht/CLightSceneNode.h

@@ -26,6 +26,7 @@
 #include "karts/kart_properties.hpp"
 #include "karts/skidding.hpp"
 #include "tracks/track.hpp"
+#include "config/user_config.hpp"
 
 // ============================================================================
 /** Constructor for the normal camera. This is the only camera constructor

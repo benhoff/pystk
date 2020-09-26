@@ -47,6 +47,8 @@ static std::vector<UserConfigParam*> all_params;
 #include <string>
 #include <vector>
 
+const int UserConfig::m_current_config_version = 8;
+
 // ----------------------------------------------------------------------------
 UserConfigParam::~UserConfigParam()
 {
@@ -637,49 +639,5 @@ core::stringc FloatUserConfigParam::toString() const
 // =====================================================================================
 
 
-int UserConfigParams::m_default_num_karts = 4;
-int UserConfigParams::m_num_laps = 4;
-int UserConfigParams::m_ffa_time_limit = 3;
-bool UserConfigParams::m_use_ffa_mode = false;
-int UserConfigParams::m_num_goals = 3;
-int UserConfigParams::m_soccer_default_team = 0;
-int UserConfigParams::m_soccer_time_limit = 3;
-bool UserConfigParams::m_soccer_use_time_limit = false;
-bool UserConfigParams::m_random_arena_item = false;
-int UserConfigParams::m_difficulty = 0;
-int UserConfigParams::m_game_mode = 0;
-std::string UserConfigParams::m_default_kart = "tux";
-
-int UserConfigParams::m_width = 1024;
-int UserConfigParams::m_height = 768;
-
-bool UserConfigParams::m_texture_compression = true;
-int UserConfigParams::m_high_definition_textures = 1;
-bool UserConfigParams::m_glow = false;
-bool UserConfigParams::m_bloom = false;
-bool UserConfigParams::m_light_shaft = false;
-bool UserConfigParams::m_dynamic_lights = true;
-bool UserConfigParams::m_dof = false;
-float UserConfigParams::m_scale_rtts_factor = 1.0f;
-int UserConfigParams::m_max_texture_size = 512;
-
-int UserConfigParams::m_particles_effects = 2;
-bool UserConfigParams::m_animated_characters = true;
-int UserConfigParams::m_geometry_level = GEOLEVEL_0;
-
-int UserConfigParams::m_anisotropic = 4;
-bool UserConfigParams::m_motionblur = false;
-bool UserConfigParams::m_mlaa = false;
-bool UserConfigParams::m_ssao = false;
-bool UserConfigParams::m_light_scatter = true;
-int UserConfigParams::m_shadows_resolution = 0;
-bool UserConfigParams::m_degraded_IBL = true;
-
-// ---- Misc
-int UserConfigParams::m_reverse_look_threshold = 0;
-float UserConfigParams::m_fpscam_direction_speed = 0.003f;
-float UserConfigParams::m_fpscam_smooth_direction_max_speed = 0.04f;
-float UserConfigParams::m_fpscam_angular_velocity = 0.02f;
-float UserConfigParams::m_fpscam_max_angular_velocity = 1.0f;
 
 // =====================================================================================
