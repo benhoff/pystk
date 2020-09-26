@@ -64,7 +64,7 @@ void Moveable::updateGraphics(const Vec3& offset_xyz,
 #ifndef SERVER_ONLY
     if (!m_node)
         return;
-    Vec3 xyz = getSmoothedTrans().getOrigin() + offset_xyz;
+    Vec3 xyz = getTrans().getOrigin() + offset_xyz;
     m_node->setPosition(xyz.toIrrVector());
     btQuaternion r_all = getTrans().getRotation() * rotation;
     if(btFuzzyZero(r_all.getX()) && btFuzzyZero(r_all.getY()-0.70710677f) &&

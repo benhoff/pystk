@@ -41,7 +41,7 @@ bool StandardRace::isRaceOver()
 void StandardRace::getDefaultCollectibles(int *collectible_type, int *amount)
 {
     // in time trial mode, give zippers
-    if(race_manager->getMinorMode() == RaceManager::MINOR_MODE_TIME_TRIAL)
+    if(RaceManager::get()->getMinorMode() == RaceManager::MINOR_MODE_TIME_TRIAL)
     {
         *collectible_type = PowerupManager::POWERUP_ZIPPER;
         *amount = RaceManager::get()->getNumLaps();

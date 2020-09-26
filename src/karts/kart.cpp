@@ -1955,8 +1955,7 @@ void Kart::crashed(const Material *m, const Vec3 &normal)
     {
 #ifndef SERVER_ONLY
         std::string particles = m->getCrashResetParticles();
-        if (!GUIEngine::isNoGraphics() &&
-            particles.size() > 0 && UserConfigParams::m_particles_effects > 0)
+        if (particles.size() > 0 && UserConfigParams::m_particles_effects > 0)
         {
             ParticleKind* kind =
                 ParticleKindManager::get()->getParticles(particles);
@@ -2351,8 +2350,7 @@ void Kart::loadData(RaceManager::KartType type, bool is_animated_model)
 {
     bool always_animated = (type == RaceManager::KT_PLAYER &&
         RaceManager::get()->getNumLocalPlayers() == 1);
-    if (!GUIEngine::isNoGraphics())
-        m_node = m_kart_model->attachModel(is_animated_model, always_animated);
+    m_node = m_kart_model->attachModel(is_animated_model, always_animated);
 
 #ifdef DEBUG
     if (m_node)

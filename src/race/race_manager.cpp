@@ -475,8 +475,7 @@ void RaceManager::exitRace(bool delete_world)
 {
     if (delete_world)
     {
-        if (type == PT_MAIN)
-            PropertyAnimator::get()->clear();
+        PropertyAnimator::get()->clear();
         World::deleteWorld();
     }
 }   // exitRace

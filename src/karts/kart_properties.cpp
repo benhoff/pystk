@@ -343,7 +343,6 @@ void KartProperties::adjustForOnlineAddonKart(const KartProperties* source)
     m_shadow_material = source->m_shadow_material;
     m_icon_material = source->m_icon_material;
     m_minimap_icon = source->m_minimap_icon;
-    m_engine_sfx_type = source->m_engine_sfx_type;
     m_color = source->m_color;
 }  // adjustForOnlineAddonKart
 

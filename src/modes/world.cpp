@@ -145,6 +145,7 @@ void World::init()
                 << "' not found.\n";
             throw std::runtime_error(msg.str());
         }
+    }
 
     std::string script_path = track->getTrackFile("scripting.as");
     Scripting::ScriptEngine::getInstance()->loadScript(script_path, true);
@@ -156,25 +157,11 @@ void World::init()
     // Load the track models - this must be done before the karts so that the
     // karts can be positioned properly on (and not in) the tracks.
     // This also defines the static Track::getCurrentTrack function.
-    if (m_process_type == PT_MAIN)
-        track->loadTrackModel(RaceManager::get()->getReverseTrack());
-    else
-    {
-        Track* child_track = Track::getCurrentTrack();
-        ChildLoop* child_loop = STKHost::getByType(PT_MAIN)->getChildLoop();
-        while (!child_loop->isAborted() && child_track == NULL)
-        {
-            StkTime::sleep(1);
-            child_track = Track::getCurrentTrack();
-        }
-        if (!child_loop->isAborted())
-            child_track->initChildTrack();
-    }
+    track->loadTrackModel(RaceManager::get()->getReverseTrack());
 
     // Shuffles the start transforms with playing 3-strikes or free for all battles.
     if ((RaceManager::get()->getMinorMode() == RaceManager::MINOR_MODE_3_STRIKES ||
-         RaceManager::get()->getMinorMode() == RaceManager::MINOR_MODE_FREE_FOR_ALL) &&
-         !NetworkConfig::get()->isNetworking())
+         RaceManager::get()->getMinorMode() == RaceManager::MINOR_MODE_FREE_FOR_ALL))
     {
         track->shuffleStartTransforms();
     }
@@ -223,7 +210,7 @@ void World::init()
 //-----------------------------------------------------------------------------
 void World::initTeamArrows(AbstractKart* k)
 {
-    if (!hasTeam() || GUIEngine::isNoGraphics())
+    if (!hasTeam())
         return;
 #ifndef SERVER_ONLY
     //Loading the indicator textures
@@ -270,8 +257,7 @@ void World::reset(bool restart)
         (*i)->reset();
     }
 
-    if (!GUIEngine::isNoGraphics())
-        Camera::resetAllCameras();
+    Camera::resetAllCameras();
 
     // Remove all (if any) previous game flyables before reset karts, so no
     // explosion animation will be created
@@ -282,7 +268,7 @@ void World::reset(bool restart)
     // of karts.
     Track::getCurrentTrack()->reset();
 
-    race_manager->reset();
+    RaceManager::get()->reset();
 
     // Reset all data structures that depend on number of karts.
     if (m_process_type == PT_MAIN)
@@ -317,7 +303,7 @@ std::shared_ptr<AbstractKart> World::createKart
     }
 
     int position           = index+1;
-    btTransform init_pos   = getStartTransform(index - gk);
+    btTransform init_pos   = getStartTransform(index);
     std::shared_ptr<AbstractKart> new_kart = std::make_shared<Kart>(kart_ident, index, position, init_pos, handicap, ri);
 
     new_kart->init(RaceManager::get()->getKartType(index));
@@ -339,6 +325,7 @@ std::shared_ptr<AbstractKart> World::createKart
     case RaceManager::KT_LEADER:
     case RaceManager::KT_SPARE_TIRE:
         break;
+    }
 
     if (!controller->isLocalPlayerController() && !online_name.empty())
         new_kart->setOnScreenText(online_name.c_str());
@@ -413,11 +400,10 @@ World::~World()
     Weather::kill();
 
     m_karts.clear();
-    race_manager->setTimeTarget(0.0f);
-    race_manager->setSpareTireKartNum(0);
+    RaceManager::get()->setTimeTarget(0.0f);
+    RaceManager::get()->setSpareTireKartNum(0);
 
-    if (!GUIEngine::isNoGraphics())
-        Camera::removeAllCameras();
+    Camera::removeAllCameras();
 
     // In case that the track is not found, Physics was not instantiated,
     // but kill handles this correctly.
@@ -531,12 +517,9 @@ void World::resetAllKarts()
     }
 
     // Initialise the cameras, now that the correct kart positions are set
-    if (!GUIEngine::isNoGraphics())
+    for(unsigned int i=0; i<Camera::getNumCameras(); i++)
     {
-        for(unsigned int i=0; i<Camera::getNumCameras(); i++)
-        {
-            Camera::getCamera(i)->setInitialTransform();
-        }
+        Camera::getCamera(i)->setInitialTransform();
     }
 }   // resetAllKarts
 
@@ -976,8 +959,8 @@ KartTeam World::getKartTeam(unsigned int kart_id) const
 //-----------------------------------------------------------------------------
 void World::setAITeam()
 {
-    m_red_ai  = RaceManager::get()->getNumberOfRedAIKarts();
-    m_blue_ai = RaceManager::get()->getNumberOfBlueAIKarts();
+    // m_red_ai  = RaceManager::get()->getNumberOfRedAIKarts();
+    // m_blue_ai = RaceManager::get()->getNumberOfBlueAIKarts();
     
     for (int i = 0; i < (int)RaceManager::get()->getNumLocalPlayers(); i++)
     {

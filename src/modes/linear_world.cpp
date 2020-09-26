@@ -143,29 +143,6 @@ void LinearWorld::reset(bool restart)
  */
 void LinearWorld::update(int ticks)
 {
-    auto sl = LobbyProtocol::get<ServerLobby>();
-    if (sl && getPhase() == RACE_PHASE)
-    {
-        bool all_players_finished = true;
-        bool has_ai = false;
-        for (unsigned i = 0; i < RaceManager::get()->getNumPlayers(); i++)
-        {
-            auto npp =
-                RaceManager::get()->getKartInfo(i).getNetworkPlayerProfile().lock();
-            if (!npp)
-                continue;
-            if (npp)
-            {
-                auto peer = npp->getPeer();
-                if ((peer && peer->isAIPeer()) || sl->isAIProfile(npp))
-                    has_ai = true;
-                else if (!getKart(i)->hasFinishedRace())
-                    all_players_finished = false;
-            }
-        }
-        if (all_players_finished && has_ai)
-            m_finish_timeout = -1.0f;
-    }
     if (getPhase() == RACE_PHASE &&
         m_finish_timeout != std::numeric_limits<float>::max())
     {

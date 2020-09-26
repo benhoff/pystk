@@ -20,7 +20,6 @@
 #include "io/file_manager.hpp"
 #include "items/powerup.hpp"
 #include "graphics/irr_driver.hpp"
-#include "guiengine/engine.hpp"
 #include "karts/abstract_kart.hpp"
 #include "karts/controller/controller.hpp"
 #include "karts/kart_model.hpp"
@@ -45,8 +44,6 @@ CaptureTheFlag::CaptureTheFlag() : FreeForAll()
     m_red_flag_indicator = m_blue_flag_indicator = NULL;
     m_red_flag_mesh = m_blue_flag_mesh = NULL;
 #ifndef SERVER_ONLY
-    if (GUIEngine::isNoGraphics())
-        return;
 
     file_manager->pushTextureSearchPath(
         file_manager->getAsset(FileManager::MODEL,""), "models");
@@ -66,8 +63,6 @@ CaptureTheFlag::CaptureTheFlag() : FreeForAll()
 CaptureTheFlag::~CaptureTheFlag()
 {
 #ifndef SERVER_ONLY
-    if (GUIEngine::isNoGraphics())
-        return;
 
     m_red_flag_node->drop();
     m_blue_flag_node->drop();
@@ -87,15 +82,6 @@ void CaptureTheFlag::init()
 
     m_red_flag = std::make_shared<CTFFlag>(FC_RED, orig_red);
     m_blue_flag = std::make_shared<CTFFlag>(FC_BLUE, orig_blue);
-    if (NetworkConfig::get()->isNetworking())
-    {
-        m_red_flag->rewinderAdd();
-        m_blue_flag->rewinderAdd();
-    }
-
-#ifndef SERVER_ONLY
-    if (GUIEngine::isNoGraphics())
-        return;
 
     m_red_flag_node = irr_driver->addAnimatedMesh(m_red_flag_mesh, "red_flag");
     m_blue_flag_node = irr_driver->addAnimatedMesh(m_blue_flag_mesh,
