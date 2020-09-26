@@ -184,7 +184,6 @@ bool ProjectileManager::projectileIsClose(const AbstractKart * const kart,
 {
     float r2 = radius * radius;
     for (auto i: m_active_projectiles)
-    for (auto i = m_active_projectiles.begin(); i != m_active_projectiles.end(); i++)
     {
         float dist2 = i->getXYZ().distance2(kart->getXYZ());
         if (dist2 < r2)
@@ -206,7 +205,7 @@ int ProjectileManager::getNearbyProjectileCount(const AbstractKart * const kart,
 {
     float r2 = radius * radius;
     int projectile_count = 0;
-    for (auto i = m_active_projectiles.begin(); i != m_active_projectiles.end(); i++)
+    for (auto i: m_active_projectiles)
     {
         if (i->getType() == type)
         {

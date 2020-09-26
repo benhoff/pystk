@@ -898,8 +898,6 @@ void ShaderBasedRenderer::addSunLight(const core::vector3df &pos)
 }
 
 void ShaderBasedRenderer::minimalRender(float dt) {
-    m_post_processing->begin();
-	
 	PROFILER_PUSH_CPU_MARKER("Update scene", 0x0, 0xFF, 0x0);
 	static_cast<scene::CSceneManager *>(irr_driver->getSceneManager())->OnAnimate(os::Timer::getTime());
 	PROFILER_POP_CPU_MARKER();
@@ -934,9 +932,8 @@ void ShaderBasedRenderer::renderToTexture(GL3RenderTarget *render_target,
     if (CVS->isARBUniformBufferObjectUsable())
         uploadLightingData();
 
-    if (CVS->isDeferredEnabled() && Physics::getInstance()->isInit() /* workaround for some bug that renders the minimap before Physics is created*/)
+    if (CVS->isDeferredEnabled())
     {
-        m_post_processing->begin();
         renderSceneDeferred(camera, dt, track->hasShadows(), true);
 		FrameBuffer *fbo = m_post_processing->render(camera, true, m_rtts);
 		m_rtts->getFBO(FBO_COLORS).bind();

@@ -52,7 +52,7 @@ SlipStream::SlipStream(AbstractKart* kart)
     m_bonus_node = NULL;
 
 #ifndef SERVER_ONLY
-    if (!GUIEngine::isNoGraphics() && CVS->isGLSL())
+    if (CVS->isGLSL())
     {
         m_moving = new MovingTexture(0.0f, 0.0f);
 
@@ -158,7 +158,7 @@ SlipStream::~SlipStream()
     delete m_slipstream_inner_quad;
     delete m_slipstream_outer_quad;
 #ifndef SERVER_ONLY
-    if (!GUIEngine::isNoGraphics() && CVS->isGLSL())
+    if (CVS->isGLSL())
     {
         delete m_moving;
         delete m_moving_fast;
@@ -583,7 +583,7 @@ void SlipStream::update(int ticks)
     if(m_kart->getSpeed() < kp->getSlipstreamMinSpeed() - 2.0f)
     {
 #ifndef SERVER_ONLY
-        if (!GUIEngine::isNoGraphics() && CVS->isGLSL())
+        if (CVS->isGLSL())
         {
             updateSlipstreamingTextures(0,NULL);
             updateBonusTexture();
@@ -736,7 +736,7 @@ void SlipStream::update(int ticks)
             m_slipstream_time -=3*dt;
         if(m_slipstream_time<0) m_slipstream_mode = SS_NONE;
 #ifndef SERVER_ONLY
-        if (!GUIEngine::isNoGraphics() && CVS->isGLSL())
+        if (CVS->isGLSL())
         {
             updateSlipstreamingTextures(0,NULL);
             updateBonusTexture();
@@ -763,7 +763,7 @@ void SlipStream::update(int ticks)
     if(isSlipstreamReady())
         m_kart->setSlipstreamEffect(9.0f);
 #ifndef SERVER_ONLY
-    if (!GUIEngine::isNoGraphics() && CVS->isGLSL())
+    if (CVS->isGLSL())
     {
         updateSlipstreamingTextures(m_slipstream_time, m_target_kart);
         updateBonusTexture();

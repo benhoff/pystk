@@ -25,7 +25,6 @@
 #include "graphics/render_info.hpp"
 #include "graphics/sp/sp_mesh.hpp"
 #include "graphics/sp/sp_mesh_node.hpp"
-#include "guiengine/engine.hpp"
 #include "items/item_manager.hpp"
 #include "karts/abstract_kart.hpp"
 #include "modes/world.hpp"

@@ -2272,8 +2272,7 @@ void SkiddingAI::checkCrashes(const Vec3& pos )
     const SlipStream *slip=m_kart->getSlipstream();
     // Atm network ai always use slipstream because it's a player controller
     // underlying
-    bool use_slipstream =
-        m_enabled_network_ai || m_ai_properties->m_make_use_of_slipstream;
+    bool use_slipstream = m_ai_properties->m_make_use_of_slipstream;
     if(use_slipstream &&
         slip->isSlipstreamReady() &&
         slip->getSlipstreamTarget())

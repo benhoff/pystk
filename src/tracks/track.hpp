@@ -310,6 +310,8 @@ private:
     video::SColor       m_sun_specular_color;
     video::SColor       m_sun_diffuse_color;
     video::SColor       m_fog_color;
+    CheckManager*           m_check_manager;
+    std::shared_ptr<ItemManager> m_item_manager;
 
     /** The render target for the mini map, which is displayed in the race gui. */
     RenderTarget           *m_render_target;
@@ -646,8 +648,11 @@ public:
     // ------------------------------------------------------------------------
     bool isAddon() const                                 { return m_is_addon; }
     // ------------------------------------------------------------------------
+    CheckManager* getCheckManager() const           { return m_check_manager; }
+    // ------------------------------------------------------------------------
     void convertTrackToBullet(scene::ISceneNode *node);
     // ------------------------------------------------------------------------
+    ItemManager* getItemManager() const        { return m_item_manager.get(); }
 };   // class Track
 
 #endif

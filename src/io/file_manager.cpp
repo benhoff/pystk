@@ -22,8 +22,6 @@
 
 #include "graphics/irr_driver.hpp"
 #include "graphics/material_manager.hpp"
-#include "guiengine/engine.hpp"
-#include "guiengine/skin.hpp"
 #include "karts/kart_properties_manager.hpp"
 #include "tracks/track_manager.hpp"
 #include "utils/command_line.hpp"
@@ -294,14 +292,14 @@ void FileManager::resetSubdir()
     m_subdir_name[LIBRARY    ] = "library";
     m_subdir_name[MODEL      ] = "models";
     m_subdir_name[MUSIC      ] = "music";
-    m_subdir_name[REPLAY     ] = "replay";
+    // m_subdir_name[REPLAY     ] = "replay";
     m_subdir_name[SCRIPT     ] = "tracks";
-    m_subdir_name[SFX        ] = "sfx";
+    // m_subdir_name[SFX        ] = "sfx";
     m_subdir_name[SKIN       ] = "skins";
     m_subdir_name[SHADER     ] = "shaders";
     m_subdir_name[TEXTURE    ] = "textures";
     m_subdir_name[TTF        ] = "ttf";
-    m_subdir_name[TRANSLATION] = "po";
+    // m_subdir_name[TRANSLATION] = "po";
 }   // resetSubdir
 
 // ----------------------------------------------------------------------------
@@ -774,19 +772,6 @@ std::string FileManager::getAssetChecked(FileManager::AssetType type,
 std::string FileManager::getAsset(FileManager::AssetType type,
                                   const std::string &name) const
 {
-    if (type == GUI_ICON && GUIEngine::getSkin()->hasIconTheme())
-    {
-        // remove the extension to check both .svg and .png
-        const std::string test_path = StringUtils::removeExtension
-            (GUIEngine::getSkin()->getDataPath() + "data/gui/icons/" + name);
-        // first check if there is an SVG version
-        if (fileExists(test_path + ".svg"))
-            return test_path + ".svg";
-        else if (fileExists(test_path + ".png"))
-            return test_path + ".png";
-        else
-            return m_subdir_name[type] + name;
-    }
     return m_subdir_name[type] + name;
 }   // getAsset
 

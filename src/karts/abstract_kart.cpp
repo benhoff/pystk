@@ -27,7 +27,6 @@
 #include "karts/kart_model.hpp"
 #include "karts/kart_properties.hpp"
 #include "karts/kart_properties_manager.hpp"
-#include "network/network_config.hpp"
 #include "physics/physics.hpp"
 #include "utils/objecttype.h"
 #include "utils/log.hpp"
@@ -85,25 +84,6 @@ void AbstractKart::loadKartProperties(const std::string& new_ident,
     m_kart_properties.reset(new KartProperties());
     const KartProperties* kp = kart_properties_manager->getKart(new_ident);
     const KartProperties* kp_addon = NULL;
-    if (NetworkConfig::get()->isNetworking() &&
-        NetworkConfig::get()->useTuxHitboxAddon() && kp && kp->isAddon())
-    {
-        // For addon kart in network we use the same hitbox (tux) so anyone
-        // can use any addon karts with different graphical kart model
-        if (!UserConfigParams::m_addon_tux_online)
-            kp_addon = kp;
-        kp = kart_properties_manager->getKart(std::string("tux"));
-    }
-    if (kp == NULL)
-    {
-        if (!NetworkConfig::get()->isNetworking() ||
-            !NetworkConfig::get()->useTuxHitboxAddon())
-        {
-            Log::warn("Abstract_Kart", "Unknown kart %s, fallback to tux",
-                new_ident.c_str());
-        }
-        kp = kart_properties_manager->getKart(std::string("tux"));
-    }
     m_kart_properties->copyForPlayer(kp, handicap);
     if (kp_addon)
         m_kart_properties->adjustForOnlineAddonKart(kp_addon);

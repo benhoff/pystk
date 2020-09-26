@@ -403,7 +403,7 @@ void Attachment::update(int ticks)
         m_initial_speed = 0;
         if (m_ticks_left <= 0)
         {
-            ItemManager::get()->dropNewItem(Item::ITEM_BUBBLEGUM, m_kart);
+            Track::getCurrentTrack()->getItemManager()->dropNewItem(Item::ITEM_BUBBLEGUM, m_kart);
         }
         break;
     }   // switch

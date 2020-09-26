@@ -77,8 +77,7 @@ void LocalPlayerController::initParticleEmitter()
     m_sky_particles_emitter = nullptr;
     Track *track = Track::getCurrentTrack();
 #ifndef SERVER_ONLY
-    if (!GUIEngine::isNoGraphics() &&
-        UserConfigParams::m_particles_effects > 1 &&
+    if (UserConfigParams::m_particles_effects > 1 &&
         track->getSkyParticles() != NULL)
     {
         track->getSkyParticles()->setBoxSizeXZ(150.0f, 150.0f);
@@ -245,8 +244,7 @@ void LocalPlayerController::setPosition(int p)
 void LocalPlayerController::finishedRace(float time)
 {
     // This will implicitly trigger setting the first end camera to be active
-    if (!GUIEngine::isNoGraphics())
-        Camera::changeCamera(m_camera_index, Camera::CM_TYPE_END);
+    Camera::changeCamera(m_camera_index, Camera::CM_TYPE_END);
 }   // finishedRace
 
 //-----------------------------------------------------------------------------
@@ -262,8 +260,7 @@ void LocalPlayerController::handleZipper()
 
 #ifndef SERVER_ONLY
     // Apply the motion blur according to the speed of the kart
-    if (!GUIEngine::isNoGraphics())
-        irr_driver->giveBoost(m_camera_index);
+    irr_driver->giveBoost(m_camera_index);
 #endif
 
 }   // handleZipper
