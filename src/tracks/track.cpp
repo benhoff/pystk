@@ -1279,11 +1279,6 @@ void Track::update(int ticks)
         m_startup_run = true;
         // After onStart all track objects will be hidden as needed
         // we only copy track objects with physical body which affects network
-        if (LobbyProtocol::getByType<LobbyProtocol>(PT_CHILD))
-        {
-            Track* child_track = clone();
-            m_current_track[PT_CHILD] = child_track;
-        }
     }
     float dt = stk_config->ticks2Time(ticks);
     m_check_manager->update(dt);
@@ -2428,14 +2423,6 @@ void Track::copyFromMainProcess()
     m_gfx_effect_mesh->copyFrom(*main_track->m_gfx_effect_mesh);
 
     // At the moment we only use network for child track
-    auto nim = std::make_shared<NetworkItemManager>();
-    for (unsigned i = 0; i < m_item_manager->getNumberOfItems(); i++)
-    {
-        ItemState* it = m_item_manager->getItem(i);
-        nim->insertItem(new Item(it->getType(), it->getXYZ(), it->getNormal(),
-            NULL/*mesh*/, NULL/*lowres_mesh*/, NULL/*owner*/));
-    }
-    m_item_manager = nim;
 }   // copyFromMainProcess
 
 //-----------------------------------------------------------------------------
@@ -2444,10 +2431,6 @@ void Track::initChildTrack()
     // This will be called in child process after main one copied to it
     assert(STKProcess::getType() == PT_CHILD);
     // Add in child process for rewind manager
-    std::dynamic_pointer_cast<NetworkItemManager>
-        (m_item_manager)->rewinderAdd();
-    std::dynamic_pointer_cast<NetworkItemManager>
-        (m_item_manager)->initServer();
 
     // We call physics init in child process too
     Physics::get()->init(m_aabb_min, m_aabb_max);
@@ -2459,11 +2442,6 @@ void Track::initChildTrack()
         to->getPhysicalObject()->addBody();
     m_track_object_manager->init();
 
-    if (auto sl = LobbyProtocol::get<ServerLobby>())
-    {
-        sl->saveInitialItems(
-            std::dynamic_pointer_cast<NetworkItemManager>(m_item_manager));
-    }
 }   // initChildTrack
 
 //-----------------------------------------------------------------------------

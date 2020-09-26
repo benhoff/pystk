@@ -80,23 +80,6 @@ namespace Scripting
         {
             irr::core::stringw msg = StringUtils::utf8ToWide(*input);
             MsgType msg_type = (MsgType)Enum_value;
-            MessageQueue::MessageType type;
-            switch (msg_type)
-            {
-                case MSG_ERROR:
-                    type = MessageQueue::MT_ERROR;
-                    break;
-                case MSG_FRIEND:
-                    type = MessageQueue::MT_FRIEND;
-                    break;
-                case MSG_ACHIEVEMENT:
-                    type = MessageQueue::MT_ACHIEVEMENT;
-                    break;
-                default:
-                    type = MessageQueue::MT_GENERIC;
-                    break;
-            }
-            MessageQueue::add(type, msg);
         }
 
         /** Displays an static Message. (enum GUI::MsgType)
@@ -107,28 +90,10 @@ namespace Scripting
         {
             irr::core::stringw msg = StringUtils::utf8ToWide(*input);
             MsgType msg_type = (MsgType)Enum_value;
-            MessageQueue::MessageType type;
-            switch (msg_type)
-            {
-                case MSG_ERROR:
-                    type = MessageQueue::MT_ERROR;
-                    break;
-                case MSG_FRIEND:
-                    type = MessageQueue::MT_FRIEND;
-                    break;
-                case MSG_ACHIEVEMENT:
-                    type = MessageQueue::MT_ACHIEVEMENT;
-                    break;
-                default:
-                    type = MessageQueue::MT_GENERIC;
-                    break;
-            }
-            MessageQueue::addStatic(type, msg);
         }
 
         void discardStaticMessage()
         {
-            MessageQueue::discardStatic();
         }
 
         void clearOverlayMessages()
@@ -220,15 +185,6 @@ namespace Scripting
 
         RaceGUIType getRaceGUIType()
         {
-            if (UserConfigParams::m_multitouch_draw_gui)
-            {
-                if (UserConfigParams::m_multitouch_controls == 1)
-                    return RGT_STEERING_WHEEL;
-                else if (UserConfigParams::m_multitouch_controls == 2)
-                    return RGT_ACCELEROMETER;
-                else if (UserConfigParams::m_multitouch_controls == 3)
-                    return RGT_GYROSCOPE;
-            }
             return RGT_KEYBOARD_GAMEPAD;
         }
         /** \endcond */

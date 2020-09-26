@@ -25,7 +25,6 @@
 #include "utils/log.hpp"
 #include "utils/random_generator.hpp"
 #include "utils/string_utils.hpp"
-#include "utils/translation.hpp"
 
 TipsManager* TipsManager::m_tips_manager = NULL;
 
@@ -76,7 +75,7 @@ void TipsManager::addTipSet(const XMLNode *input)
             continue; // missing text, ignore node
 
         // Gettext is used here
-        m_all_tip_sets[id].push_back(_(text.c_str()));
+        m_all_tip_sets[id].push_back(text.c_str());
     }
     if (m_all_tip_sets[id].size() != input->getNumNodes())
     {

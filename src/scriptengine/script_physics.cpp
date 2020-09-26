@@ -33,7 +33,7 @@ namespace Scripting
         void createExplosion(asIScriptGeneric *gen)
         {
             Vec3 *explosion_loc = (Vec3*)gen->GetArgAddress(0);
-            HitEffect *he = new Explosion(*explosion_loc, "explosion", "explosion_bomb.xml");
+            HitEffect *he = new Explosion(*explosion_loc, "explosion_bomb.xml");
             ProjectileManager::get()->addHitEffect(he);
         }
         void registerScriptFunctions(asIScriptEngine *engine)

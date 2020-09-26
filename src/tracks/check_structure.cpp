@@ -137,7 +137,7 @@ void CheckStructure::changeStatus(const std::vector<int> &indices,
                                   ChangeState change_state)
 {
     bool update_debug_colors =
-        UserConfigParams::m_check_debug && RaceManager::get()->getNumPlayers()>0 &&
+        RaceManager::get()->getNumPlayers()>0 &&
         kart_index == (int)World::getWorld()->getPlayerKart(0)->getWorldKartId();
 
     CheckManager* cm = Track::getCurrentTrack()->getCheckManager();

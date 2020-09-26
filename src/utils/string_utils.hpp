@@ -32,6 +32,7 @@
 
 namespace StringUtils
 {
+    int versionToInt(const std::string &s);
 
     bool startsWith(const std::string& str, const std::string& prefix);
 

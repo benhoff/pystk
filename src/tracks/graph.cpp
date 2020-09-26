@@ -24,7 +24,6 @@
 #include "graphics/material_manager.hpp"
 #include "graphics/sp/sp_mesh.hpp"
 #include "graphics/sp/sp_mesh_buffer.hpp"
-#include "guiengine/engine.hpp"
 #include "race/race_manager.hpp"
 #include "tracks/arena_node_3d.hpp"
 #include "tracks/drive_node_2d.hpp"

@@ -44,6 +44,7 @@ FILE*         Log::m_file_stdout   = NULL;
 size_t        Log::m_buffer_size = 1;
 bool          Log::m_console_log = true;
 std::vector<struct Log::LineInfo> Log::m_line_buffer;
+thread_local  char g_prefix[11] = {};
 
 // ----------------------------------------------------------------------------
 /** Selects background/foreground colors for the message depending on
