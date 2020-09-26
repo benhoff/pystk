@@ -190,7 +190,7 @@ void Kart::getSurroundings()
 
 			btCollisionWorld::ClosestRayResultCallback ray_callback(cart_xyz,
 									       	my_vec);
-            Physics::get()->getPhysicsWorld()->ratTest(cart_xyz, my_vec, ray_callback);
+            Physics::get()->getPhysicsWorld()->rayTest(cart_xyz, my_vec, ray_callback);
 
             // Physics::get()->getPhysicsWorld()->rayTest(cart_xyz, my_vec, ray_callback);
 
@@ -437,8 +437,8 @@ void PySTKRace::restart() {
 }
 
 void PySTKRace::start() {
-    race_manager->setupPlayerKartInfo();
-    race_manager->startNew();
+    RaceManager::get()->setupPlayerKartInfo();
+    RaceManager::get()->startNew();
     time_leftover_ = 0.f;
     
     for(int i=0; i<config_.players.size(); i++) {
@@ -460,7 +460,7 @@ void PySTKRace::stop() {
 
     if (World::getWorld())
     {
-        race_manager->exitRace();
+        RaceManager::get()->exitRace();
     }
 }
 void PySTKRace::render(float dt) {
@@ -530,7 +530,7 @@ bool PySTKRace::step() {
 #ifdef RENDERDOC
     if(rdoc_api) rdoc_api->EndFrameCapture(NULL, NULL);
 #endif
-    return race_manager && race_manager->getFinishedPlayers() < race_manager->getNumPlayers();
+    return RaceManager::get()->getFinishedPlayers() < RaceManager::get()->getNumPlayers();
 }
 
 void PySTKRace::load() {
@@ -542,7 +542,7 @@ void PySTKRace::load() {
     // Reading the rest of the player data needs the unlock manager to
     // initialise the game slots of all players and the AchievementsManager
     // to initialise the AchievementsStatus, so it is done only now.
-    projectile_manager->loadData();
+    ProjectileManager::get()->loadData();
 
     // Both item_manager and powerup_manager load models and therefore
     // textures from the model directory. To avoid reading the
@@ -580,27 +580,26 @@ static RaceManager::MinorRaceModeType translate_mode(PySTKRaceConfig::RaceMode m
 
 void PySTKRace::setupConfig(const PySTKRaceConfig & config) {
     config_ = config;
-    
-    race_manager->setDifficulty(RaceManager::Difficulty(config.difficulty));
-    race_manager->setMinorMode(translate_mode(config.mode));
-    race_manager->setNumPlayers(config.players.size());
+    RaceManager::get()->setDifficulty(RaceManager::Difficulty(config.difficulty));
+    RaceManager::get()->setMinorMode(translate_mode(config.mode));
+    RaceManager::get()->setNumPlayers(config.players.size());
     for(int i=0; i<config.players.size(); i++) {
         std::string kart = config.players[i].kart.size() ? config.players[i].kart : (std::string)UserConfigParams::m_default_kart;
         const KartProperties *prop = kart_properties_manager->getKart(kart);
         if (!prop)
             kart = UserConfigParams::m_default_kart;
-        race_manager->setPlayerKart(i, kart);
-        race_manager->setKartTeam(i, (KartTeam)config.players[i].team);
+        RaceManager::get()->setPlayerKart(i, kart);
+        RaceManager::get()->setKartTeam(i, (KartTeam)config.players[i].team);
     }
-    race_manager->setReverseTrack(config.reverse);
+    RaceManager::get()->setReverseTrack(config.reverse);
     if (config.track.length())
-        race_manager->setTrack(config.track);
+        RaceManager::get()->setTrack(config.track);
     else
-        race_manager->setTrack("lighthouse");
+        RaceManager::get()->setTrack("lighthouse");
     
-    race_manager->setNumLaps(config.laps);
-    race_manager->setNumKarts(config.num_kart);
-    race_manager->setMaxGoal(1<<30);
+    RaceManager::get()->setNumLaps(config.laps);
+    RaceManager::get()->setNumKarts(config.num_kart);
+    RaceManager::get()->setMaxGoal(1<<30);
 }
 
 void PySTKRace::initGraphicsConfig(const PySTKGraphicsConfig & config) {
@@ -662,7 +661,7 @@ void PySTKRace::initRest()
     material_manager        = new MaterialManager      ();
     track_manager           = new TrackManager         ();
     kart_properties_manager = new KartPropertiesManager();
-    projectile_manager      = new ProjectileManager    ();
+    ProjectileManager::create();
     powerup_manager         = new PowerupManager       ();
     attachment_manager      = new AttachmentManager    ();
 
@@ -681,12 +680,12 @@ void PySTKRace::initRest()
 
     track_manager->loadTrackList();
 
-    race_manager            = new RaceManager          ();
+    RaceManager::create();
     // default settings for Quickstart
-    race_manager->setNumPlayers(1);
-    race_manager->setNumLaps   (3);
-    race_manager->setMinorMode (RaceManager::MINOR_MODE_NORMAL_RACE);
-    race_manager->setDifficulty(
+    RaceManager::get()->setNumPlayers(1);
+    RaceManager::get()->setNumLaps   (3);
+    RaceManager::get()->setMinorMode (RaceManager::MINOR_MODE_NORMAL_RACE);
+    RaceManager::get()->setDifficulty(
                  (RaceManager::Difficulty)(int)UserConfigParams::m_difficulty);
 
     kart_properties_manager -> loadAllKarts(false);
@@ -701,15 +700,13 @@ void PySTKRace::cleanSuperTuxKart()
     // Stop music (this request will go into the sfx manager queue, so it needs
     // to be done before stopping the thread).
     irr_driver->updateConfigIfRelevant();
-    if(race_manager)            delete race_manager;
-    race_manager = nullptr;
+    RaceManager::destroy();
     if(attachment_manager)      delete attachment_manager;
     attachment_manager = nullptr;
     ItemManager::removeTextures();
     if(powerup_manager)         delete powerup_manager;
     powerup_manager = nullptr;
-    if(projectile_manager)      delete projectile_manager;
-    projectile_manager = nullptr;
+    ProjectileManager::destroy();
     if(kart_properties_manager) delete kart_properties_manager;
     kart_properties_manager = nullptr;
     if(track_manager)           delete track_manager;

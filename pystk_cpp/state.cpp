@@ -373,7 +373,7 @@ struct PySoccerBall {
 	}
 	void update(const SoccerWorld * w) {
 		if (w) {
-			id = w->ballID();
+			// id = w->getBall()->get
 			location = P(w->getBallPosition());
 			size = w->getBallDiameter();
 		}
@@ -401,11 +401,11 @@ struct PySoccer {
 		if (w) {
 			score = {w->getScore((KartTeam)0), w->getScore((KartTeam)1)};
 			ball.update(w);
-            unsigned int n = CheckManager::get()->getCheckStructureCount();
+            unsigned int n = Track::getCurrentTrack()->getCheckManager()->getCheckStructureCount();
             for (unsigned int i = 0; i < n; i++)
             {
                 CheckGoal* goal = dynamic_cast<CheckGoal*>
-                    (CheckManager::get()->getCheckStructure(i));
+                    (Track::getCurrentTrack()->getCheckManager()->getCheckStructure(i));
                 if (goal)
                     goal_line[(int)goal->getTeam()] = {P(goal->getPoint(CheckGoal::POINT_FIRST)), P(goal->getPoint(CheckGoal::POINT_LAST))};
             }
@@ -622,7 +622,7 @@ struct PyWorldState {
 				ffa->update(fw);
 			}
 		}
-		ItemManager * im = ItemManager::get();
+		ItemManager * im = Track::getCurrentTrack()->getItemManager();
 		if (im) {
 			items.clear();
 			for(int i=0; i<im->getNumberOfItems(); i++) {
