@@ -790,7 +790,7 @@ ShaderBasedRenderer::ShaderBasedRenderer()
     SharedGPUObjects::init();
     SP::init();
     SP::initSTKRenderer(this);
-	m_track_renderer = new TrackRenderer();
+	createPostProcessing();
 }
 
 // ----------------------------------------------------------------------------
