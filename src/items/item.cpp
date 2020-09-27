@@ -199,6 +199,7 @@ Item::Item(ItemType type, const Vec3& xyz, const Vec3& normal,
     {
         lodnode->add(100, meshnode, true);
     }
+    m_node = lodnode;
     setType(type);
     handleNewMesh(getGrahpicalType());
 
