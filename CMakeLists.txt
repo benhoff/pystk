@@ -183,6 +183,16 @@ add_subdirectory("${PROJECT_SOURCE_DIR}/lib/angelscript/projects/cmake")
 include_directories("${PROJECT_SOURCE_DIR}/lib/angelscript/include")
 set(Angelscript_LIBRARIES angelscript)
 
+find_library(HARFBUZZ_LIBRARY NAMES harfbuzz libharfbuzz)
+find_path(HARFBUZZ_INCLUDEDIR NAMES harfbuzz/hb.h hb.h PATHS)
+if (NOT HARFBUZZ_LIBRARY OR NOT HARFBUZZ_INCLUDEDIR)
+    message(FATAL_ERROR "Harfbuzz not found. "
+        "Harfbuzz is required to display characters in SuperTuxKart.")
+else()
+    include_directories("${HARFBUZZ_INCLUDEDIR}")
+    MESSAGE(STATUS "Use system harfbuzz: ${HARFBUZZ_LIBRARY}")
+endif()
+
 # OpenGL
 find_package(OpenGL REQUIRED)
 include_directories(${OPENGL_INCLUDE_DIR})
@@ -265,6 +275,7 @@ target_link_libraries(stk
     bulletmath
 #     ${ENET_LIBRARIES}
     stkirrlicht
+    ${HARFBUZZ_LIBRARY}
     ${Angelscript_LIBRARIES}
     ${MCPP_LIBRARY}
     )
