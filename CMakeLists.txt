@@ -266,6 +266,7 @@ target_link_libraries(stk
 #     ${ENET_LIBRARIES}
     stkirrlicht
     ${Angelscript_LIBRARIES}
+    ${MCPP_LIBRARY}
     )
 
 if(NOT SERVER_ONLY)
