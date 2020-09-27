@@ -104,6 +104,7 @@ source/Irrlicht/CBillboardSceneNode.cpp
 source/Irrlicht/CBoneSceneNode.cpp
 source/Irrlicht/CCameraSceneNode.cpp
 source/Irrlicht/CColorConverter.cpp
+source/Irrlicht/CContextEGL.cpp
 source/Irrlicht/CCubeSceneNode.cpp
 source/Irrlicht/CDefaultGUIElementFactory.cpp
 source/Irrlicht/CDefaultSceneNodeAnimatorFactory.cpp
@@ -235,6 +236,7 @@ source/Irrlicht/CBlit.h
 source/Irrlicht/CBoneSceneNode.h
 source/Irrlicht/CCameraSceneNode.h
 source/Irrlicht/CColorConverter.h
+source/Irrlicht/CContextEGL.h
 source/Irrlicht/CCubeSceneNode.h
 source/Irrlicht/CDefaultGUIElementFactory.h
 source/Irrlicht/CDefaultSceneNodeAnimatorFactory.h
