@@ -43,7 +43,7 @@
 //! different library versions without having to change the sources.
 //! Example: NO_IRR_COMPILE_WITH_X11_ would disable X11
 
-
+#define NO_IRR_COMPILE_WITH_SDL_DEVICE_
 //! Uncomment this line to compile with the SDL device
 //#define _IRR_COMPILE_WITH_SDL_DEVICE_
 // Always use SDL2 in STK unless server only compilation
