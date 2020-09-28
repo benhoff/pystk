@@ -791,6 +791,7 @@ ShaderBasedRenderer::ShaderBasedRenderer()
     SP::init();
     SP::initSTKRenderer(this);
 	createPostProcessing();
+    m_track_renderer = new TrackRenderer();
 }
 
 // ----------------------------------------------------------------------------
