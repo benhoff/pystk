@@ -21,9 +21,6 @@
 
 #include "modes/world_with_rank.hpp"
 #include "karts/abstract_kart.hpp"
-#include "tracks/check_goal.hpp"
-#include "tracks/check_manager.hpp"
-#include "config/stk_config.hpp"
 
 #include <IMesh.h>
 #include <string>
@@ -31,6 +28,7 @@
 class AbstractKart;
 class BallGoalData;
 class Controller;
+class NetworkString;
 class TrackObject;
 class TrackSector;
 
@@ -79,61 +77,6 @@ private:
         }
     };   // KartDistanceMap
 
-    class BallGoalData
-    {
-    // These data are used by AI to determine ball aiming angle
-    private:
-        // Radius of the ball
-        float m_radius;
-
-        // Slope of the line from ball to the center point of goals
-        float m_red_goal_slope;
-        float m_blue_goal_slope;
-
-        // The transform only takes the ball heading into account,
-        // ie no hpr of ball which allowing setting aim point easier
-        btTransform m_trans;
-
-        // Two goals
-        CheckGoal* m_blue_check_goal;
-        CheckGoal* m_red_check_goal;
-
-        // Location to red/blue goal points from the ball heading point of view
-        Vec3 m_red_goal_1;
-        Vec3 m_red_goal_2;
-        Vec3 m_red_goal_3;
-        Vec3 m_blue_goal_1;
-        Vec3 m_blue_goal_2;
-        Vec3 m_blue_goal_3;
-    public:
-        void reset()
-        {
-            m_red_goal_1 = Vec3(0, 0, 0);
-            m_red_goal_2 = Vec3(0, 0, 0);
-            m_red_goal_3 = Vec3(0, 0, 0);
-            m_blue_goal_1 = Vec3(0, 0, 0);
-            m_blue_goal_2 = Vec3(0, 0, 0);
-            m_blue_goal_3 = Vec3(0, 0, 0);
-            m_red_goal_slope = 1.0f;
-            m_blue_goal_slope = 1.0f;
-            m_trans = btTransform(btQuaternion(0, 0, 0, 1), Vec3(0, 0, 0));
-        }   // reset
-
-        float getDiameter() const
-        {
-            return m_radius * 2;
-        }   // getDiameter
-
-        void init(float ball_radius);
-
-        void updateBallAndGoal(const Vec3& ball_pos, float heading);
-
-        bool isApproachingGoal(KartTeam team) const;
-
-        Vec3 getAimPosition(KartTeam team, bool reverse) const;
-        void resetCheckGoal(const Track* t);
-    };   // BallGoalData
-
     std::vector<KartDistanceMap> m_red_kdm;
     std::vector<KartDistanceMap> m_blue_kdm;
     std::unique_ptr<BallGoalData> m_bgd;
@@ -145,6 +88,7 @@ private:
     /** Number of goals needed to win */
     int m_goal_target;
     bool m_count_down_reached_zero;
+
 
     /** Counts ticks when the ball is off track, so a reset can be
      *  triggered if the ball is off for more than 2 seconds. */
@@ -261,6 +205,10 @@ public:
     /** Get the AI who will attack the other team ball chaser. */
     int getAttacker(KartTeam team) const;
     // ------------------------------------------------------------------------
+    void handlePlayerGoalFromServer(const NetworkString& ns);
+    // ------------------------------------------------------------------------
+    void handleResetBallFromServer(const NetworkString& ns);
+    // ------------------------------------------------------------------------
     virtual bool hasTeam() const OVERRIDE                      { return true; }
     // ------------------------------------------------------------------------
     virtual std::pair<uint32_t, uint32_t> getGameStartedProgress() const
@@ -286,15 +234,19 @@ public:
         return progress;
     }
     // ------------------------------------------------------------------------
+    // ------------------------------------------------------------------------
     virtual bool isGoalPhase() const OVERRIDE
     {
         int diff = m_ticks_back_to_own_goal - getTicksSinceStart();
-        return diff > 0 && diff < stk_config->time2Ticks(3.0f);
+        return diff > 0;
     }
     // ------------------------------------------------------------------------
+    AbstractKart* getKartAtDrawingPosition(unsigned int p) const OVERRIDE
+                                { return getKart(m_team_icon_draw_id[p - 1]); }
     // ------------------------------------------------------------------------
     TrackObject* getBall() const { return m_ball; }
 };   // SoccerWorld
 
 
 #endif
+

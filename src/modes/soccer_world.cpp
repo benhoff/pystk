@@ -17,14 +17,16 @@
 
 #include "modes/soccer_world.hpp"
 
+#include "config/user_config.hpp"
 #include "io/file_manager.hpp"
 #include "graphics/irr_driver.hpp"
 #include "karts/abstract_kart_animation.hpp"
 #include "karts/kart_model.hpp"
 #include "karts/kart_properties.hpp"
 #include "karts/controller/local_player_controller.hpp"
-
 #include "physics/physics.hpp"
+#include "tracks/check_goal.hpp"
+#include "tracks/check_manager.hpp"
 #include "tracks/graph.hpp"
 #include "tracks/quad.hpp"
 #include "tracks/track.hpp"
@@ -246,6 +248,7 @@ SoccerWorld::SoccerWorld() : WorldWithRank()
  */
 SoccerWorld::~SoccerWorld()
 {
+
     delete m_ball_track_sector;
     m_ball_track_sector = NULL;
 }   // ~SoccerWorld
@@ -330,6 +333,27 @@ void SoccerWorld::reset(bool restart)
     m_ticks_back_to_own_goal = -1;
     m_ball->setEnabled(false);
 
+    // Make the player kart in profiling mode up
+    // ie make this kart less likely to affect gaming result
+    if (UserConfigParams::m_arena_ai_stats)
+        getKart(8)->flyUp();
+
+    // Team will remain unchanged even with live join
+    std::vector<int> red_id, blue_id;
+    for (unsigned int i = 0; i < m_karts.size(); i++)
+    {
+        if (getKartTeam(i) == KART_TEAM_RED)
+            red_id.push_back(i);
+        else
+            blue_id.push_back(i);
+    }
+
+    m_team_icon_draw_id.resize(getNumKarts());
+    int pos = 0;
+    for (int id : red_id)
+        m_team_icon_draw_id[pos++] = id;
+    for (int id : blue_id)
+        m_team_icon_draw_id[pos++] = id;
 }   // reset
 
 //-----------------------------------------------------------------------------
@@ -371,7 +395,6 @@ void SoccerWorld::update(int ticks)
     if (Track::getCurrentTrack()->hasNavMesh())
     {
         updateSectorForKarts();
-        updateAIData();
     }
 
     WorldWithRank::update(ticks);
@@ -400,8 +423,30 @@ void SoccerWorld::update(int ticks)
         {
             // Reset all karts and ball
             resetKartsToSelfGoals();
+            if (UserConfigParams::m_arena_ai_stats)
+                getKart(8)->flyUp();
         }
     }
+    if (UserConfigParams::m_arena_ai_stats)
+        m_frame_count++;
+
+    // FIXME before next release always update soccer kart position to fix
+    // powerup random number
+    /*beginSetKartPositions();
+    int pos = 1;
+    for (unsigned i = 0; i < getNumKarts(); i++)
+    {
+        if (getKart(i)->isEliminated())
+            continue;
+        setKartPosition(i, pos++);
+    }
+    for (unsigned i = 0; i < getNumKarts(); i++)
+    {
+        if (!getKart(i)->isEliminated())
+            continue;
+        setKartPosition(i, pos++);
+    }
+    endSetKartPositions();*/
 }   // update
 
 //-----------------------------------------------------------------------------
@@ -416,6 +461,13 @@ void SoccerWorld::onCheckGoalTriggered(bool first_goal)
     m_ball->setEnabled(false);
     if (m_ball_hitter != -1)
     {
+        if (UserConfigParams::m_arena_ai_stats)
+        {
+            const int elapsed_frame = m_goal_frame.empty() ? 0 :
+                std::accumulate(m_goal_frame.begin(), m_goal_frame.end(), 0);
+            m_goal_frame.push_back(m_frame_count - elapsed_frame);
+        }
+
         ScorerData sd = {};
         sd.m_id = m_ball_hitter;
         sd.m_correct_goal = isCorrectGoal(m_ball_hitter, first_goal);
@@ -423,6 +475,9 @@ void SoccerWorld::onCheckGoalTriggered(bool first_goal)
         sd.m_player = getKart(m_ball_hitter)->getController()
             ->getName(false/*include_handicap_string*/);
         sd.m_handicap_level = getKart(m_ball_hitter)->getHandicap();
+        if (RaceManager::get()->getKartGlobalPlayerId(m_ball_hitter) > -1)
+        {
+        }
         if (sd.m_correct_goal)
         {
             m_karts[m_ball_hitter]->getKartModel()
@@ -434,6 +489,14 @@ void SoccerWorld::onCheckGoalTriggered(bool first_goal)
                 ->setAnimation(KartModel::AF_LOSE_START, true/* play_non_loop*/);
         }
 
+#ifndef SERVER_ONLY
+        // show a message once a goal is made
+        core::stringw msg;
+        if (sd.m_correct_goal)
+            msg = "%s scored a goal!", sd.m_player;
+        else
+            msg = "Oops, %s made an own goal!", sd.m_player;
+#endif
 
         if (first_goal)
         {
@@ -466,6 +529,64 @@ void SoccerWorld::onCheckGoalTriggered(bool first_goal)
         m_goal_transforms[i] = kart->getBody()->getWorldTransform();
     }
 }   // onCheckGoalTriggered
+
+//-----------------------------------------------------------------------------
+void SoccerWorld::handleResetBallFromServer(const NetworkString& ns)
+{
+    int ticks_now = World::getWorld()->getTicksSinceStart();
+    m_reset_ball_ticks = ticks_now;
+}   // handleResetBallFromServer
+
+//-----------------------------------------------------------------------------
+void SoccerWorld::handlePlayerGoalFromServer(const NetworkString& ns)
+{
+    ScorerData sd = {};
+
+    if (true)
+    {
+        m_red_scorers.push_back(sd);
+    }
+    else
+    {
+        m_blue_scorers.push_back(sd);
+    }
+
+    // show a message once a goal is made
+    core::stringw msg;
+    if (sd.m_correct_goal)
+        msg = "%s scored a goal!", sd.m_player;
+    else
+        msg = "Oops, %s made an own goal!", sd.m_player;
+    float time = 3.0f;
+
+    // m_ticks_back_to_own_goal = ticks_back_to_own_goal;
+    for (unsigned i = 0; i < m_karts.size(); i++)
+    {
+        auto& kart = m_karts[i];
+        btTransform transform_now = kart->getBody()->getWorldTransform();
+        kart->getBody()->setLinearVelocity(Vec3(0.0f));
+        kart->getBody()->setAngularVelocity(Vec3(0.0f));
+        kart->getBody()->proceedToTransform(transform_now);
+        kart->setTrans(transform_now);
+        m_goal_transforms[i] = transform_now;
+    }
+    m_ball->reset();
+    m_ball->setEnabled(false);
+
+    // Ignore the rest in live join
+
+    if (sd.m_correct_goal)
+    {
+        m_karts[sd.m_id]->getKartModel()
+            ->setAnimation(KartModel::AF_WIN_START, true/* play_non_loop*/);
+    }
+    else if (!sd.m_correct_goal)
+    {
+        m_karts[sd.m_id]->getKartModel()
+            ->setAnimation(KartModel::AF_LOSE_START, true/* play_non_loop*/);
+    }
+
+}   // handlePlayerGoalFromServer
 
 //-----------------------------------------------------------------------------
 void SoccerWorld::resetKartsToSelfGoals()
@@ -563,16 +684,29 @@ void SoccerWorld::updateBallPosition(int ticks)
         m_ball_track_sector
             ->update(getBallPosition(), true/*ignore_vertical*/);
 
-        if (getTicksSinceStart() > m_reset_ball_ticks &&
+        bool is_client = true;
+
+        if (!is_client && getTicksSinceStart() > m_reset_ball_ticks &&
             !m_ball_track_sector->isOnRoad())
         {
             m_ball_invalid_timer += ticks;
             // Reset the ball and karts if out of navmesh after 2 seconds
             if (m_ball_invalid_timer >= stk_config->time2Ticks(2.0f))
             {
+                if (false)
+                {
+                    // Reset the ball 2 seconds in the future to make sure it's
+                    // after all clients time
+                    m_reset_ball_ticks = getTicksSinceStart() +
+                        stk_config->time2Ticks(2.0f);
+
+                }
+                else if (true)
                 {
                     m_ball_invalid_timer = 0;
                     resetKartsToSelfGoals();
+                    if (UserConfigParams::m_arena_ai_stats)
+                        getKart(8)->flyUp();
                 }
             }
         }
@@ -621,6 +755,10 @@ void SoccerWorld::updateAIData()
 
     for (unsigned int i = 0; i < m_karts.size(); ++i)
     {
+        if (UserConfigParams::m_arena_ai_stats &&
+            m_karts[i]->getController()->isPlayerController())
+            continue;
+
         if (getKartTeam(m_karts[i]->getWorldKartId()) == KART_TEAM_RED)
         {
             Vec3 rd = m_karts[i]->getXYZ() - getBallPosition();
@@ -703,20 +841,77 @@ btTransform SoccerWorld::getRescueTransform(unsigned int rescue_pos) const
 void SoccerWorld::enterRaceOverState()
 {
     WorldWithRank::enterRaceOverState();
+
+    if (UserConfigParams::m_arena_ai_stats)
+    {
+        Log::verbose("Soccer AI profiling", "Total frames elapsed for a team"
+            " to win with 30 goals: %d", m_frame_count);
+
+        // Goal time statistics
+        std::sort(m_goal_frame.begin(), m_goal_frame.end());
+
+        const int mean = std::accumulate(m_goal_frame.begin(),
+            m_goal_frame.end(), 0) / (int)m_goal_frame.size();
+
+        // Prevent overflow if there is a large frame in vector
+        double squared_sum = 0;
+        for (const int &i : m_goal_frame)
+            squared_sum = squared_sum + (double(i - mean) * double(i - mean));
+
+        // Use sample st. deviation (n-1) as the profiling can't be run forever
+        const int stdev = int(sqrt(squared_sum / (m_goal_frame.size() - 1)));
+
+        int median = 0;
+        if (m_goal_frame.size() % 2 == 0)
+        {
+            median = (m_goal_frame[m_goal_frame.size() / 2 - 1] +
+                m_goal_frame[m_goal_frame.size() / 2]) / 2;
+        }
+        else
+        {
+            median = m_goal_frame[m_goal_frame.size() / 2];
+        }
+
+        Log::verbose("Soccer AI profiling", "Frames elapsed for each goal:"
+            " min: %d max: %d mean: %d median: %d standard deviation: %d",
+            m_goal_frame.front(), m_goal_frame.back(), mean, median, stdev);
+
+        // Goal calculation
+        int red_own_goal = 0;
+        int blue_own_goal = 0;
+        for (unsigned i = 0; i < m_red_scorers.size(); i++)
+        {
+            // Notice: if a team has own goal, the score will end up in the
+            // opposite team
+            if (!m_red_scorers[i].m_correct_goal)
+                blue_own_goal++;
+        }
+        for (unsigned i = 0; i < m_blue_scorers.size(); i++)
+        {
+            if (!m_blue_scorers[i].m_correct_goal)
+                red_own_goal++;
+        }
+
+        int red_goal = ((int(m_red_scorers.size()) - blue_own_goal) >= 0 ?
+            (int)m_red_scorers.size() - blue_own_goal : 0);
+        int blue_goal = ((int(m_blue_scorers.size()) - red_own_goal) >= 0 ?
+            (int)m_blue_scorers.size() - red_own_goal : 0);
+
+        Log::verbose("Soccer AI profiling", "Red goal: %d, Red own goal: %d,"
+            "Blue goal: %d, Blue own goal: %d", red_goal, red_own_goal,
+            blue_goal, blue_own_goal);
+
+        if (getScore(KART_TEAM_BLUE) >= m_goal_target)
+            Log::verbose("Soccer AI profiling", "Blue team wins");
+        else
+            Log::verbose("Soccer AI profiling", "Red team wins");
+
+        delete this;
+        // main_loop->abort();
+    }
+
 }   // enterRaceOverState
 
-
-void SoccerWorld::setBallPosition(const Vec3 & p, const Vec3 & v, const Vec3 & a) {
-	m_ball->reset();
-	btTransform new_comt = m_ball_body->getCenterOfMassTransform();
-	new_comt.setOrigin(p);
-	m_ball_body->setCenterOfMassTransform(new_comt);
-	m_ball_body->setLinearVelocity(v);
-	m_ball_body->setAngularVelocity(a);
-}
-// ----------------------------------------------------------------------------
-
-// ----------------------------------------------------------------------------
 
 // ----------------------------------------------------------------------------
 float SoccerWorld::getBallDiameter() const
@@ -736,6 +931,11 @@ Vec3 SoccerWorld::getBallAimPosition(KartTeam team, bool reverse) const
     return m_bgd->getAimPosition(team, reverse);
 }   // getBallAimPosition
 
-// ----------------------------------------------------------------------------
-/** Returns the data to display in the race gui.
- */
+void SoccerWorld::setBallPosition(const Vec3 & p, const Vec3 & v, const Vec3 & a) {
+	m_ball->reset();
+	btTransform new_comt = m_ball_body->getCenterOfMassTransform();
+	new_comt.setOrigin(p);
+	m_ball_body->setCenterOfMassTransform(new_comt);
+	m_ball_body->setLinearVelocity(v);
+	m_ball_body->setAngularVelocity(a);
+}
