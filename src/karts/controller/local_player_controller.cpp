@@ -57,8 +57,11 @@ LocalPlayerController::LocalPlayerController(AbstractKart *kart,
     // Keep a pointer to the camera to remove the need to search for
     // the right camera once per frame later.
     m_camera_index = -1;
+    Camera *camera = Camera::createCamera(kart, local_player_id);
 
-    // m_camera_index = camera->getIndex();
+    m_camera_index = camera->getIndex();
+
+    m_is_above_nitro_target = false;
 
     initParticleEmitter();
 }   // LocalPlayerController

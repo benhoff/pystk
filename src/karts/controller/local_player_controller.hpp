@@ -36,7 +36,9 @@ class ParticleEmitter;
 class LocalPlayerController : public PlayerController
 {
 private:
-//     bool           m_has_started;
+    // StateManager::ActivePlayer *m_player;
+    bool           m_has_started;
+    bool           m_is_above_nitro_target;
 
     std::unique_ptr<ParticleEmitter> m_sky_particles_emitter;
 
