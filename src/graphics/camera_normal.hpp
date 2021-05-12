@@ -51,7 +51,7 @@ private:
 
     Vec3            m_camera_offset;
 
-    void moveCamera(float dt, bool smooth);
+    void moveCamera(float dt, bool smooth, float cam_angle, float distance);
     void handleEndCamera(float dt);
     void getCameraSettings(float *above_kart, float *cam_angle,
                            float *side_way, float *distance,
@@ -83,6 +83,8 @@ public:
     // ------------------------------------------------------------------------
     /** Sets the ambient light for this camera. */
     void setAmbientLight(const video::SColor &color) { m_ambient_light=color; }
+    // ------------------------------------------------------------------------
+    void setDistanceToKart(float distance) { m_distance = distance; }
     // ------------------------------------------------------------------------
     float getDistanceToKart() const { return m_distance; }
     // ------------------------------------------------------------------------

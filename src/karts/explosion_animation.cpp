@@ -59,7 +59,7 @@ ExplosionAnimation *ExplosionAnimation::create(AbstractKart *kart,
         return NULL;
     }
 
-    if (race_manager->isFollowMode())
+    if (RaceManager::get()->isFollowMode())
     {
         FollowTheLeaderRace *ftl_world =
             dynamic_cast<FollowTheLeaderRace*>(World::getWorld());
@@ -93,7 +93,7 @@ ExplosionAnimation::ExplosionAnimation(AbstractKart* kart, bool direct_hit)
     memset(m_reset_trans_compressed, 0, 16);
     Vec3 normal = m_created_transform.getBasis().getColumn(1).normalized();
     // Put the kart back to its own flag base like rescue if direct hit in CTF
-    bool reset = race_manager->getMinorMode() ==
+    bool reset = RaceManager::get()->getMinorMode() ==
         RaceManager::MINOR_MODE_CAPTURE_THE_FLAG && direct_hit;
     if (reset)
     {
@@ -158,7 +158,7 @@ void ExplosionAnimation::init(bool direct_hit, const Vec3& normal,
     }
 
     // Put the kart back to its own flag base like rescue if direct hit in CTF
-    if (race_manager->getMinorMode() ==
+    if (RaceManager::get()->getMinorMode() ==
         RaceManager::MINOR_MODE_CAPTURE_THE_FLAG && direct_hit)
     {
         m_reset_ticks = m_created_ticks +
@@ -254,7 +254,7 @@ void ExplosionAnimation::update(int ticks)
 // ----------------------------------------------------------------------------
 void ExplosionAnimation::updateGraphics(float dt)
 {
-    if (!m_kart->getStarsEffect()->isEnabled())
+    if (m_kart->getStarsEffect() && !m_kart->getStarsEffect()->isEnabled())
     {
         // Set graphical effects for invulnerable time in updateGraphics
         // to avoid issue with rewind

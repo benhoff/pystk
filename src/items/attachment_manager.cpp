@@ -91,15 +91,6 @@ void AttachmentManager::loadModels()
         SP::uploadSPM(mesh);
 #endif
         m_attachments[iat[i].attachment] = mesh;
-        if(iat[i].icon_file)
-        {
-            std::string full_icon_path     =
-                file_manager->getAsset(FileManager::MODEL, iat[i].icon_file);
-            m_all_icons[iat[i].attachment] =
-                material_manager->getMaterial(full_icon_path,
-                                              /* full_path */     true,
-                                              /*make_permanent */ true);
-        }
     }   // for
 }   // reInit
 

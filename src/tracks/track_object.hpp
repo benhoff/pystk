@@ -25,7 +25,6 @@
 #include "scriptengine/scriptvec3.hpp"
 #include "tracks/track_object_presentation.hpp"
 #include "utils/cpp2011.hpp"
-#include "utils/no_copy.hpp"
 #include "utils/vec3.hpp"
 #include <string>
 #include "animations/three_d_animation.hpp"
@@ -43,7 +42,7 @@ class XMLNode;
  *  might also have a skeletal animation. This is used by objects that
  *  have an IPO animation, as well as physical objects.
  */
-class TrackObject : public NoCopy
+class TrackObject
 {
 //public:
     // The different type of track objects: physical objects, graphical
@@ -226,6 +225,15 @@ public:
     // ------------------------------------------------------------------------
     const ThreeDAnimation* getAnimator() const { return m_animator; }
     // ------------------------------------------------------------------------
+    /* Return true if it has animator or its parent library has */
+    bool hasAnimatorRecursively() const
+    {
+        if (m_animator)
+            return true;
+        if (!m_parent_library)
+            return false;
+        return m_parent_library->hasAnimatorRecursively();
+    }
     void setInitiallyVisible(bool val)           { m_initially_visible = val; }
     // ------------------------------------------------------------------------
     /** Returns if a kart can drive on this object. */
@@ -246,6 +254,7 @@ public:
     // ------------------------------------------------------------------------
     bool joinToMainTrack();
     uint32_t objectID() const;
+    TrackObject* cloneToChild();
     LEAK_CHECK()
 };   // TrackObject
 

@@ -34,7 +34,6 @@
 #include "items/item_manager.hpp"
 #include "karts/abstract_kart.hpp"
 #include "modes/world.hpp"
-#include "modes/world.hpp"
 #include "scriptengine/script_engine.hpp"
 #include "tracks/check_cylinder.hpp"
 #include "tracks/check_manager.hpp"
@@ -43,6 +42,7 @@
 #include "tracks/track.hpp"
 #include "tracks/track_manager.hpp"
 #include "tracks/track_object_manager.hpp"
+#include "utils/stk_process.hpp"
 #include "utils/string_utils.hpp"
 
 #include <IBillboardSceneNode.h>
@@ -285,6 +285,10 @@ TrackObjectPresentationLibraryNode::TrackObjectPresentationLibraryNode(
 
 void TrackObjectPresentationLibraryNode::update(float dt)
 {
+    // Child process currently has no scripting engine
+    if (STKProcess::getType() == PT_CHILD)
+        return;
+
     if (!m_start_executed)
     {
         m_start_executed = true;
@@ -326,19 +330,15 @@ TrackObjectPresentationLibraryNode::~TrackObjectPresentationLibraryNode()
 }   // TrackObjectPresentationLibraryNode
 // ----------------------------------------------------------------------------
 void TrackObjectPresentationLibraryNode::move(const core::vector3df& xyz, const core::vector3df& hpr,
-    const core::vector3df& scale, bool isAbsoluteCoord, bool moveChildrenPhysicalBodies)
+    const core::vector3df& scale, bool isAbsoluteCoord)
 {
     TrackObjectPresentationSceneNode::move(xyz, hpr, scale, isAbsoluteCoord);
 
-    if (moveChildrenPhysicalBodies)
+    for (TrackObject* obj : m_parent->getChildren())
     {
-        for (TrackObject* obj : m_parent->getChildren())
+        if (obj->getPhysicalObject() != NULL)
         {
-            obj->reset();
-            if (obj->getPhysicalObject() != NULL)
-            {
-                obj->movePhysicalBodyToGraphicalNode(obj->getAbsolutePosition(), obj->getRotation());
-            }
+            obj->movePhysicalBodyToGraphicalNode(obj->getAbsolutePosition(), obj->getRotation());
         }
     }
 }
@@ -948,14 +948,14 @@ TrackObjectPresentationActionTrigger::TrackObjectPresentationActionTrigger(
 
     if (m_type == TRIGGER_TYPE_POINT)
     {
-        CheckManager::get()->add(
+        Track::getCurrentTrack()->getCheckManager()->add(
             new CheckTrigger(m_init_xyz, trigger_distance, std::bind(
             &TrackObjectPresentationActionTrigger::onTriggerItemApproached,
             this, std::placeholders::_1)));
     }
     else if (m_type == TRIGGER_TYPE_CYLINDER)
     {
-        CheckManager::get()->add(new CheckCylinder(xml_node, std::bind(
+        Track::getCurrentTrack()->getCheckManager()->add(new CheckCylinder(xml_node, std::bind(
             &TrackObjectPresentationActionTrigger::onTriggerItemApproached,
             this, std::placeholders::_1)));
     }
@@ -980,7 +980,7 @@ TrackObjectPresentationActionTrigger::TrackObjectPresentationActionTrigger(
     m_xml_reenable_timeout = 999999.9f;
     setReenableTimeout(0.0f);
     m_type                 = TRIGGER_TYPE_POINT;
-    CheckManager::get()->add(
+    Track::getCurrentTrack()->getCheckManager()->add(
         new CheckTrigger(m_init_xyz, trigger_distance, std::bind(
         &TrackObjectPresentationActionTrigger::onTriggerItemApproached,
         this, std::placeholders::_1)));
@@ -989,7 +989,8 @@ TrackObjectPresentationActionTrigger::TrackObjectPresentationActionTrigger(
 // ----------------------------------------------------------------------------
 void TrackObjectPresentationActionTrigger::onTriggerItemApproached(int kart_id)
 {
-    if (m_reenable_timeout > StkTime::getMonoTimeMs())
+    if (m_reenable_timeout > StkTime::getMonoTimeMs() ||
+        STKProcess::getType() == PT_CHILD)
     {
         return;
     }

@@ -49,17 +49,19 @@
  */
 LocalPlayerController::LocalPlayerController(AbstractKart *kart,
                                              const int local_player_id,
-                                             PerPlayerDifficulty d)
+                                             HandicapLevel h)
                      : PlayerController(kart)
 {
-//     m_has_started = false;
-    m_difficulty = d;
+    m_handicap = h;
 
     // Keep a pointer to the camera to remove the need to search for
     // the right camera once per frame later.
+    m_camera_index = -1;
     Camera *camera = Camera::createCamera(kart, local_player_id);
 
     m_camera_index = camera->getIndex();
+
+    m_is_above_nitro_target = false;
 
     initParticleEmitter();
 }   // LocalPlayerController
@@ -172,8 +174,9 @@ void LocalPlayerController::update(int ticks)
     // look backward when the player requests or
     // if automatic reverse camera is active
 #ifndef SERVER_ONLY
-    Camera *camera = Camera::getCamera(m_camera_index);
-    if (camera->getType() != Camera::CM_TYPE_END)
+    Camera *camera = NULL;
+    camera = Camera::getCamera(m_camera_index);
+    if (camera && camera->getType() != Camera::CM_TYPE_END)
     {
         if (m_controls->getLookBack() || (UserConfigParams::m_reverse_look_threshold > 0 &&
             m_kart->getSpeed() < -UserConfigParams::m_reverse_look_threshold))
@@ -289,7 +292,7 @@ bool LocalPlayerController::canGetAchievements() const
 }   // canGetAchievements
 
 // ----------------------------------------------------------------------------
-core::stringw LocalPlayerController::getName() const
+core::stringw LocalPlayerController::getName(bool include_handicap_string) const
 {
     return "";
 }   // getName

@@ -483,7 +483,7 @@ void ShaderBasedRenderer::renderSceneDeferred(scene::ICameraSceneNode * const ca
         m_lighting_passes.renderLightsScatter(m_rtts->getDepthStencilTexture(),
                                               m_rtts->getFBO(FBO_HALF1),
                                               m_rtts->getFBO(FBO_HALF2),
-                                              m_post_processing);
+                                              m_post_processing.get());
         PROFILER_POP_CPU_MARKER();
     }
 
@@ -694,10 +694,9 @@ void ShaderBasedRenderer::debugPhysics()
     // the bullet debug view, since otherwise the camera
     // is not set up properly. This is only used for
     // the bullet debug view.
-    if(Physics::getInstance())
+    if(Physics::get())
     {
-
-        IrrDebugDrawer* debug_drawer = Physics::getInstance()->getDebugDrawer();
+        IrrDebugDrawer* debug_drawer = Physics::get()->getDebugDrawer();
         if (debug_drawer != NULL && debug_drawer->debugEnabled())
         {
             const std::map<video::SColor, std::vector<float> >& lines = 
@@ -766,7 +765,7 @@ void ShaderBasedRenderer::renderPostProcessing(Camera * const camera,
     }
     else if (irr_driver->getShadowViz() && m_rtts->getShadowFrameBuffer())
     {
-        m_shadow_matrices.renderShadowsDebug(m_rtts->getShadowFrameBuffer(), m_post_processing);
+        m_shadow_matrices.renderShadowsDebug(m_rtts->getShadowFrameBuffer(), m_post_processing.get());
     }
     else
     {
@@ -784,20 +783,20 @@ void ShaderBasedRenderer::renderPostProcessing(Camera * const camera,
 // ----------------------------------------------------------------------------
 ShaderBasedRenderer::ShaderBasedRenderer()
 {
+    m_dump_rtt              = false;
     m_rtts                  = NULL;
     m_skybox                = NULL;
     m_spherical_harmonics   = new SphericalHarmonics(irr_driver->getAmbientLight().toSColor());
     SharedGPUObjects::init();
     SP::init();
     SP::initSTKRenderer(this);
-    m_post_processing = new PostProcessing();
-	m_track_renderer = new TrackRenderer();
+	createPostProcessing();
+    m_track_renderer = new TrackRenderer();
 }
 
 // ----------------------------------------------------------------------------
 ShaderBasedRenderer::~ShaderBasedRenderer()
 {
-    delete m_post_processing;
     delete m_spherical_harmonics;
     delete m_skybox;
     delete m_rtts;
@@ -805,6 +804,12 @@ ShaderBasedRenderer::~ShaderBasedRenderer()
     ShaderBase::killShaders();
     SP::destroy();
     ShaderFilesManager::kill();
+}
+
+// ----------------------------------------------------------------------------
+void ShaderBasedRenderer::createPostProcessing()
+{
+    m_post_processing.reset(new PostProcessing());
 }
 
 // ----------------------------------------------------------------------------
@@ -894,8 +899,6 @@ void ShaderBasedRenderer::addSunLight(const core::vector3df &pos)
 }
 
 void ShaderBasedRenderer::minimalRender(float dt) {
-    m_post_processing->begin();
-	
 	PROFILER_PUSH_CPU_MARKER("Update scene", 0x0, 0xFF, 0x0);
 	static_cast<scene::CSceneManager *>(irr_driver->getSceneManager())->OnAnimate(os::Timer::getTime());
 	PROFILER_POP_CPU_MARKER();
@@ -930,9 +933,8 @@ void ShaderBasedRenderer::renderToTexture(GL3RenderTarget *render_target,
     if (CVS->isARBUniformBufferObjectUsable())
         uploadLightingData();
 
-    if (CVS->isDeferredEnabled() && Physics::getInstance()->isInit() /* workaround for some bug that renders the minimap before Physics is created*/)
+    if (CVS->isDeferredEnabled())
     {
-        m_post_processing->begin();
         renderSceneDeferred(camera, dt, track->hasShadows(), true);
 		FrameBuffer *fbo = m_post_processing->render(camera, true, m_rtts);
 		m_rtts->getFBO(FBO_COLORS).bind();
@@ -954,6 +956,49 @@ void ShaderBasedRenderer::renderToTexture(GL3RenderTarget *render_target,
     glBindFramebuffer(GL_FRAMEBUFFER, irr_driver->getDefaultFramebuffer());
 
     irr_driver->getSceneManager()->setActiveCamera(NULL);
+    if (m_dump_rtt)
+    {
+        m_dump_rtt = false;
+#ifndef USE_GLES2
+        const unsigned width = m_rtts->getWidth();
+        const unsigned height = m_rtts->getHeight();
+        uint8_t* pixels = new uint8_t[width * height * 4]();
+        GLint tmp_texture;
+        glGetIntegerv(GL_TEXTURE_BINDING_2D, &tmp_texture);
+        glBindTexture(GL_TEXTURE_2D, m_rtts->getRenderTarget(RTT_COLOR));
+        glGetTexImage(GL_TEXTURE_2D, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
+        const int pitch = width * 4;
+        uint8_t* fbi = pixels;
+        uint8_t* p2 = fbi + (height - 1) * pitch;
+        uint8_t* tmp_buf = new uint8_t[pitch];
+        for (unsigned i = 0; i < height; i += 2)
+        {
+            memcpy(tmp_buf, fbi, pitch);
+            memcpy(fbi, p2, pitch);
+            memcpy(p2, tmp_buf, pitch);
+            fbi += pitch;
+            p2 -= pitch;
+        }
+        if (CVS->isDeferredEnabled())
+        {
+            for (unsigned int i = 0; i < width * height; i++)
+            {
+                pixels[i * 4] = SP::linearToSrgb(pixels[i * 4] / 255.f);
+                pixels[i * 4 + 1] = SP::linearToSrgb(pixels[i * 4 + 1] / 255.f);
+                pixels[i * 4 + 2] = SP::linearToSrgb(pixels[i * 4 + 2] / 255.f);
+                pixels[i * 4 + 3] = SP::linearToSrgb(pixels[i * 4 + 3] / 255.f);
+            }
+        }
+        delete [] tmp_buf;
+        glBindTexture(GL_TEXTURE_2D, tmp_texture);
+        core::dimension2d<u32> size(width, height);
+        video::IImage* image = irr_driver->getVideoDriver()
+            ->createImageFromData(video::ECF_A8R8G8B8, size, pixels,
+            true/*ownForeignMemory*/);
+        irr_driver->getVideoDriver()->writeImageToFile(image, "rtt.png");
+        image->drop();
+#endif
+    }
 
 } //renderToTexture
 

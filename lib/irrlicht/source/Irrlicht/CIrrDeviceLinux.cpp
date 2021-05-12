@@ -11,7 +11,6 @@ extern bool GLContextDebugBit;
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <sys/utsname.h>
 #include <time.h>
 #include <locale.h>
@@ -66,6 +65,8 @@ extern bool GLContextDebugBit;
 
 #define XRANDR_ROTATION_LEFT    (1 << 1)
 #define XRANDR_ROTATION_RIGHT   (1 << 3)
+
+#include <unistd.h>
 
 namespace irr
 {

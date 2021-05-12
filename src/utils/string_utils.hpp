@@ -21,6 +21,7 @@
 #ifndef HEADER_STRING_UTILS_HPP
 #define HEADER_STRING_UTILS_HPP
 
+#include "utils/types.hpp"
 #include <limits>
 #include <string>
 #include <vector>
@@ -31,6 +32,7 @@
 
 namespace StringUtils
 {
+    int versionToInt(const std::string &s);
 
     bool startsWith(const std::string& str, const std::string& prefix);
 
@@ -44,7 +46,7 @@ namespace StringUtils
     std::string getExtension(const std::string& filename);
 
     std::string ticksTimeToString(int time);
-    std::string timeToString(float time, unsigned int precision=2,
+    std::string timeToString(float time, unsigned int precision = 3,
                              bool display_minutes_if_zero = true, bool display_hours = false);
     irr::core::stringw loadingDots(float interval = 0.5f, int max_dots = 3);
     irr::core::stringw loadingDots(const irr::core::stringw& s);
@@ -279,6 +281,9 @@ namespace StringUtils
     irr::core::stringw utf32ToWide(const std::u32string& input);
     std::u32string wideToUtf32(const irr::core::stringw& input);
 
+    // ------------------------------------------------------------------------
+    std::pair<std::string, std::string> extractVersionOS(
+                                                const std::string& user_agent);
     // ------------------------------------------------------------------------
     /* Get line from istream with taking into account for its line ending. */
     inline std::istream& safeGetline(std::istream& is, std::string& t)

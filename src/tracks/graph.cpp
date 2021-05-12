@@ -24,7 +24,6 @@
 #include "graphics/material_manager.hpp"
 #include "graphics/sp/sp_mesh.hpp"
 #include "graphics/sp/sp_mesh_buffer.hpp"
-#include "modes/world.hpp"
 #include "race/race_manager.hpp"
 #include "tracks/arena_node_3d.hpp"
 #include "tracks/drive_node_2d.hpp"
@@ -433,8 +432,10 @@ void Graph::createQuad(const Vec3 &p0, const Vec3 &p1, const Vec3 &p2,
     }
     else
     {
+#ifndef SERVER_ONLY
         Log::debug("Graph", "2d node created, normal: %f, %f, %f",
             normal.x(), normal.y(), normal.z());
+#endif
         if (is_arena)
         {
             q = new ArenaNode(p0, p1, p2, p3, normal, node_index);

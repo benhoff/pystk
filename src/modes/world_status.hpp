@@ -21,6 +21,8 @@
 #include "utils/cpp2011.hpp"
 #include <atomic>
 
+enum ProcessType : unsigned int;
+
 /**
  * \brief A class that manages the clock (countdown, chrono, etc.)
  * Also manages stuff like the 'ready/set/go' text at the beginning or the delay at the end of a race.
@@ -67,6 +69,9 @@ protected:
 
     /** Time in number of ticks (in terms of physics time steps). */
     int             m_time_ticks;
+
+    /** Process type of this world (main or child). */
+    const ProcessType m_process_type;
 private:
     /** The clock mode: normal counting forwards, or countdown */ 
     ClockType       m_clock_mode;

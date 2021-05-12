@@ -21,6 +21,7 @@
 #include "config/stk_config.hpp"
 #include "physics/physics.hpp"
 #include "utils/constants.hpp"
+#include "utils/log.hpp"
 #include "utils/time.hpp"
 
 #include "btBulletDynamicsCommon.h"
@@ -197,7 +198,7 @@ void TriangleMesh::createPhysicalBody(float friction,
     info.m_friction    = friction;
 
     m_body=new RigidBodyTriangleMesh(this, info);
-    Physics::getInstance()->addBody(m_body);
+    Physics::get()->addBody(m_body);
 
     m_body->setUserPointer(&m_user_pointer);
     m_body->setCollisionFlags(m_body->getCollisionFlags()  |
@@ -217,7 +218,7 @@ void TriangleMesh::removeAll()
     // Don't free the physical body if it was created outside this object.
     if(m_body && m_free_body)
     {
-        Physics::getInstance()->removeBody(m_body);
+        Physics::get()->removeBody(m_body);
         delete m_body;
         delete m_motion_state;
         m_body         = NULL;

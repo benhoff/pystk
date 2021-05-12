@@ -36,8 +36,6 @@
 
 #include "physics/triangle_mesh.hpp"
 #include "tracks/track.hpp"
-#include "physics/triangle_mesh.hpp"
-#include "tracks/track.hpp"
 #include "utils/constants.hpp"
 #include "utils/objecttype.h"
 
@@ -54,10 +52,8 @@ Attachment::Attachment(AbstractKart* kart)
     m_kart                 = kart;
     m_previous_owner       = NULL;
     m_initial_speed        = 0.0f;
-
     m_node = irr_driver->addAnimatedMesh(
-        attachment_manager->getMesh(Attachment::ATTACH_BOMB), "bomb",
-        NULL, std::make_shared<RenderInfo>(0.0f, true, newObjectId(OT_BOMB)));
+        attachment_manager->getMesh(Attachment::ATTACH_BOMB), "bomb");
 #ifdef DEBUG
     std::string debug_name = kart->getIdent()+" (attachment)";
     m_node->setName(debug_name.c_str());
@@ -181,7 +177,7 @@ void Attachment::hitBanana(ItemState *item_state)
 
     bool add_a_new_item = true;
 
-    if (race_manager->isBattleMode())
+    if (RaceManager::get()->isBattleMode())
     {
         World::getWorld()->kartHit(m_kart->getWorldKartId());
         if (m_kart->getKartAnimation() == NULL)
@@ -200,10 +196,8 @@ void Attachment::hitBanana(ItemState *item_state)
     case ATTACH_BOMB:
         {
         add_a_new_item = false;
-        {
-            HitEffect* he = new Explosion(m_kart->getXYZ(), "explosion_bomb.xml");
-            projectile_manager->addHitEffect(he);
-        }
+        HitEffect* he = new Explosion(m_kart->getXYZ(), "explosion");
+        ProjectileManager::get()->addHitEffect(he);
         if (m_kart->getKartAnimation() == NULL)
             ExplosionAnimation::create(m_kart);
         clear();
@@ -229,7 +223,7 @@ void Attachment::hitBanana(ItemState *item_state)
         leftover_ticks  = m_ticks_left;
         break;
     default:
-        if (race_manager->getMinorMode() == RaceManager::MINOR_MODE_TIME_TRIAL)
+        if (RaceManager::get()->getMinorMode() == RaceManager::MINOR_MODE_TIME_TRIAL)
             new_attachment = AttachmentType(ticks % 2);
         else
             new_attachment = AttachmentType(ticks % 3);
@@ -241,7 +235,9 @@ void Attachment::hitBanana(ItemState *item_state)
         {
         case ATTACH_PARACHUTE:
         {
-            set(ATTACH_PARACHUTE, kp->getParachuteDuration() + leftover_ticks);
+            int parachute_ticks = stk_config->time2Ticks(
+                kp->getParachuteDuration()) + leftover_ticks;
+            set(ATTACH_PARACHUTE, parachute_ticks);
             int initial_speed_round = (int)(m_kart->getSpeed() * 100.0f);
             initial_speed_round =
                 irr::core::clamp(initial_speed_round, -32768, 32767);
@@ -395,10 +391,8 @@ void Attachment::update(int ticks)
         m_initial_speed = 0;
         if (m_ticks_left <= 0)
         {
-            {
-                HitEffect* he = new Explosion(m_kart->getXYZ(), "explosion_bomb.xml");
-                projectile_manager->addHitEffect(he);
-            }
+            HitEffect* he = new Explosion(m_kart->getXYZ(), "explosion_bomb.xml");
+            ProjectileManager::get()->addHitEffect(he);
             if (m_kart->getKartAnimation() == NULL)
                 ExplosionAnimation::create(m_kart);
         }
@@ -409,7 +403,7 @@ void Attachment::update(int ticks)
         m_initial_speed = 0;
         if (m_ticks_left <= 0)
         {
-            ItemManager::get()->dropNewItem(Item::ITEM_BUBBLEGUM, m_kart);
+            Track::getCurrentTrack()->getItemManager()->dropNewItem(Item::ITEM_BUBBLEGUM, m_kart);
         }
         break;
     }   // switch

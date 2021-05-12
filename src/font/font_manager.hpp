@@ -35,6 +35,7 @@
 
 #ifndef SERVER_ONLY
 #include <ft2build.h>
+#include <harfbuzz/hb.h>
 #include FT_FREETYPE_H
 
 #include "irrString.h"
@@ -75,6 +76,12 @@ private:
         std::vector<irr::gui::GlyphLayout> > m_cached_gls;
 
     bool m_has_color_emoji;
+    // ------------------------------------------------------------------------
+    std::vector<FT_Face> loadTTF(const std::vector<std::string>& ttf_list);
+
+    hb_buffer_t* m_hb_buffer;
+
+    std::vector<hb_font_t*> m_hb_fonts;
 #endif
 
     /** Map type for each \ref FontWithFace with a index, save getting time in
@@ -119,8 +126,6 @@ public:
     // ------------------------------------------------------------------------
     /** Return the \ref m_ft_library. */
     FT_Library getFTLibrary() const                    { return m_ft_library; }
-    // ------------------------------------------------------------------------
-    std::vector<FT_Face> loadTTF(const std::vector<std::string>& ttf_list);
     // ------------------------------------------------------------------------
     FT_Face loadColorEmoji();
     // ------------------------------------------------------------------------

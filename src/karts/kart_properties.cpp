@@ -46,12 +46,12 @@
 
 float KartProperties::UNDEFINED = -99.9f;
 
-std::string KartProperties::getPerPlayerDifficultyAsString(PerPlayerDifficulty d)
+std::string KartProperties::getHandicapAsString(HandicapLevel h)
 {
-    switch(d)
+    switch(h)
     {
-    case PLAYER_DIFFICULTY_NORMAL:   return "normal";   break;
-    case PLAYER_DIFFICULTY_HANDICAP: return "handicap"; break;
+    case HANDICAP_NONE:   return "normal";   break;
+    case HANDICAP_MEDIUM: return "handicap"; break;
     default:  assert(false);
     }
     return "";
@@ -130,7 +130,7 @@ KartProperties::~KartProperties()
  *         values.
  */
 void KartProperties::copyForPlayer(const KartProperties *source,
-                                   PerPlayerDifficulty d)
+                                   HandicapLevel h)
 {
     *this = *source;
 
@@ -144,7 +144,7 @@ void KartProperties::copyForPlayer(const KartProperties *source,
 
         // Combine the characteristics for this object. We can't copy it because
         // this object has other pointers (to m_characteristic).
-        combineCharacteristics(d);
+        combineCharacteristics(h);
     }
 }   // copyForPlayer
 
@@ -218,7 +218,7 @@ void KartProperties::load(const std::string &filename, const std::string &node)
         }
         getAllData(root);
         m_characteristic = std::make_shared<XmlCharacteristic>(root);
-        combineCharacteristics(PLAYER_DIFFICULTY_NORMAL);
+        combineCharacteristics(HANDICAP_NONE);
     }
     catch(std::exception& err)
     {
@@ -331,15 +331,30 @@ void KartProperties::setHatMeshName(const std::string &hat_name)
     m_kart_model->setHatMeshName(hat_name);
 }  // setHatMeshName
 
+// ----------------------------------------------------------------------------
+/** Change the graphical properties (icon, shadow..) for addon kart using in
+ *  online mode.
+ *  \param source The source kart properties from which to copy this objects'
+ *         values.
+ */
+void KartProperties::adjustForOnlineAddonKart(const KartProperties* source)
+{
+    m_ident = source->m_ident;
+    m_shadow_material = source->m_shadow_material;
+    m_icon_material = source->m_icon_material;
+    m_minimap_icon = source->m_minimap_icon;
+    m_color = source->m_color;
+}  // adjustForOnlineAddonKart
+
 //-----------------------------------------------------------------------------
-void KartProperties::combineCharacteristics(PerPlayerDifficulty difficulty)
+void KartProperties::combineCharacteristics(HandicapLevel handicap)
 {
     m_combined_characteristic = std::make_shared<CombinedCharacteristic>();
     m_combined_characteristic->addCharacteristic(kart_properties_manager->
         getBaseCharacteristic());
     m_combined_characteristic->addCharacteristic(kart_properties_manager->
-        getDifficultyCharacteristic(race_manager->getDifficultyAsString(
-            race_manager->getDifficulty())));
+        getDifficultyCharacteristic(RaceManager::get()->getDifficultyAsString(
+            RaceManager::get()->getDifficulty())));
 
     // Try to get the kart type
     const AbstractCharacteristic *characteristic = kart_properties_manager->
@@ -349,7 +364,7 @@ void KartProperties::combineCharacteristics(PerPlayerDifficulty difficulty)
     m_combined_characteristic->addCharacteristic(characteristic);
 
     m_combined_characteristic->addCharacteristic(kart_properties_manager->
-        getPlayerCharacteristic(getPerPlayerDifficultyAsString(difficulty)));
+        getPlayerCharacteristic(getHandicapAsString(handicap)));
 
     m_combined_characteristic->addCharacteristic(m_characteristic.get());
     m_cached_characteristic = std::make_shared<CachedCharacteristic>
@@ -627,7 +642,7 @@ float KartProperties::getEngineMaxSpeed() const
 float KartProperties::getEngineGenericMaxSpeed() const
 {
     return m_cached_characteristic->getEngineGenericMaxSpeed();
-}  // getEngineMaxSpeed
+}  // getEngineGenericMaxSpeed
 
 // ----------------------------------------------------------------------------
 float KartProperties::getEngineBrakeFactor() const
@@ -678,24 +693,6 @@ float KartProperties::getWheelsDampingCompression() const
 }  // getWheelsDampingCompression
 
 // ----------------------------------------------------------------------------
-float KartProperties::getCameraDistance() const
-{
-    return m_cached_characteristic->getCameraDistance();
-}  // getCameraDistance
-
-// ----------------------------------------------------------------------------
-float KartProperties::getCameraForwardUpAngle() const
-{
-    return m_cached_characteristic->getCameraForwardUpAngle();
-}  // getCameraForwardUpAngle
-
-// ----------------------------------------------------------------------------
-float KartProperties::getCameraBackwardUpAngle() const
-{
-    return m_cached_characteristic->getCameraBackwardUpAngle();
-}  // getCameraBackwardUpAngle
-
-// ----------------------------------------------------------------------------
 float KartProperties::getJumpAnimationTime() const
 {
     return m_cached_characteristic->getJumpAnimationTime();
@@ -738,13 +735,13 @@ float KartProperties::getParachuteFriction() const
 }  // getParachuteFriction
 
 // ----------------------------------------------------------------------------
-int KartProperties::getParachuteDuration() const
+float KartProperties::getParachuteDuration() const
 {
     return m_cached_characteristic->getParachuteDuration();
 }  // getParachuteDuration
 
 // ----------------------------------------------------------------------------
-int KartProperties::getParachuteDurationOther() const
+float KartProperties::getParachuteDurationOther() const
 {
     return m_cached_characteristic->getParachuteDurationOther();
 }  // getParachuteDurationOther
@@ -804,10 +801,9 @@ float KartProperties::getBubblegumTorque() const
 }  // getBubblegumTorque
 
 // ----------------------------------------------------------------------------
-int KartProperties::getBubblegumFadeInTicks() const
+float KartProperties::getBubblegumFadeInTime() const
 {
-    return stk_config->time2Ticks(m_cached_characteristic
-                                  ->getBubblegumFadeInTime());
+    return m_cached_characteristic->getBubblegumFadeInTime();
 }  // getBubblegumFadeInTime
 
 // ----------------------------------------------------------------------------
@@ -895,10 +891,9 @@ float KartProperties::getPlungerBandSpeedIncrease() const
 }  // getPlungerBandSpeedIncrease
 
 // ----------------------------------------------------------------------------
-int KartProperties::getPlungerBandFadeOutTicks() const
+float KartProperties::getPlungerBandFadeOutTime() const
 {
-    return stk_config->time2Ticks(m_cached_characteristic
-                                   ->getPlungerBandFadeOutTime());
+    return m_cached_characteristic->getPlungerBandFadeOutTime();
 }  // getPlungerBandFadeOutTime
 
 // ----------------------------------------------------------------------------
@@ -961,7 +956,7 @@ float KartProperties::getNitroDuration() const
     return m_cached_characteristic->getNitroDuration();
 }  // getNitroDuration
 
-// ------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
 float KartProperties::getNitroEngineForce() const
 {
     return m_cached_characteristic->getNitroEngineForce();
@@ -1070,10 +1065,9 @@ float KartProperties::getSlipstreamMaxSpeedIncrease() const
 }  // getSlipstreamMaxSpeedIncrease
 
 // ----------------------------------------------------------------------------
-int KartProperties::getSlipstreamFadeOutTicks() const
+float KartProperties::getSlipstreamFadeOutTime() const
 {
-    return stk_config->time2Ticks(m_cached_characteristic
-                                  ->getSlipstreamFadeOutTime());
+    return m_cached_characteristic->getSlipstreamFadeOutTime();
 }  // getSlipstreamFadeOutTime
 
 // ----------------------------------------------------------------------------
@@ -1183,6 +1177,7 @@ bool KartProperties::getSkidEnabled() const
 {
     return m_cached_characteristic->getSkidEnabled();
 }  // getSkidEnabled
+
 
 /* <characteristics-end kpgetter> */
 

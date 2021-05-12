@@ -25,6 +25,7 @@
   * battle, etc.)
   */
 
+#include <cstring>
 #include <limits>
 #include <map>
 #include <memory>
@@ -35,6 +36,7 @@
 #include "modes/world_status.hpp"
 #include "race/race_manager.hpp"
 #include "utils/random_generator.hpp"
+#include "utils/stk_process.hpp"
 
 #include "LinearMath/btTransform.h"
 
@@ -85,14 +87,14 @@ public:
     typedef std::vector<std::shared_ptr<AbstractKart> > KartList;
 private:
     /** A pointer to the global world object for a race. */
-    static World *m_world;
+    static World *m_world[PT_COUNT];
     // ------------------------------------------------------------------------
     void setAITeam();
     // ------------------------------------------------------------------------
     std::shared_ptr<AbstractKart> createKartWithTeam
         (const std::string &kart_ident, int index, int local_player_id,
         int global_player_id, RaceManager::KartType type,
-        PerPlayerDifficulty difficulty);
+        HandicapLevel handicap);
 
 protected:
 
@@ -131,7 +133,7 @@ protected:
     virtual std::shared_ptr<AbstractKart> createKart
         (const std::string &kart_ident, int index, int local_player_id,
         int global_player_id, RaceManager::KartType type,
-        PerPlayerDifficulty difficulty);
+        HandicapLevel handicap);
 
     bool m_schedule_exit_race;
 
@@ -144,7 +146,9 @@ protected:
 
     /** Set when the world is online and counts network players. */
     bool m_is_network_world;
-    
+
+    bool m_ended_early;
+
     virtual void  onGo() OVERRIDE;
     /** Returns true if the race is over. Must be defined by all modes. */
     virtual bool  isRaceOver() = 0;
@@ -168,16 +172,31 @@ public:
     // =================================
     // ------------------------------------------------------------------------
     /** Returns a pointer to the (singleton) world object. */
-    static World*   getWorld() { return m_world; }
+    static World*   getWorld()
+    {
+        ProcessType type = STKProcess::getType();
+        return m_world[type];
+    }
     // ------------------------------------------------------------------------
     /** Delete the )singleton) world object, if it exists, and sets the
       * singleton pointer to NULL. It's harmless to call this if the world
       *  has been deleted already. */
-    static void     deleteWorld() { delete m_world; m_world = NULL; }
+    static void     deleteWorld()
+    {
+        ProcessType type = STKProcess::getType();
+        delete m_world[type];
+        m_world[type] = NULL;
+    }
     // ------------------------------------------------------------------------
     /** Sets the pointer to the world object. This is only used by
      *  the race_manager.*/
-    static void     setWorld(World *world) {m_world = world; }
+    static void     setWorld(World *world)
+    {
+        ProcessType type = STKProcess::getType();
+        m_world[type] = world;
+    }
+    // ------------------------------------------------------------------------
+    static void     clear() { memset(m_world, 0, sizeof(m_world)); }
     // ------------------------------------------------------------------------
 
     // Pure virtual functions
@@ -226,6 +245,8 @@ public:
                                const ItemState *item    ) {}
     // ------------------------------------------------------------------------
     virtual void endRaceEarly() { return; }
+    // ------------------------------------------------------------------------
+    virtual bool hasRaceEndedEarly() const { return m_ended_early; }
     // ------------------------------------------------------------------------
     /** Called to determine whether this race mode uses bonus boxes. */
     virtual bool haveBonusBoxes() { return true; }

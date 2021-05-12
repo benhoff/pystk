@@ -18,4 +18,3 @@
 
 #include "items/item_event_info.hpp"
 
-

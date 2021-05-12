@@ -19,6 +19,7 @@
 #include "font/font_with_face.hpp"
 
 #include "font/face_ttf.hpp"
+#include "font/font_drawer.hpp"
 #include "font/font_manager.hpp"
 #include "font/font_settings.hpp"
 #include "graphics/2dutils.hpp"
@@ -31,6 +32,8 @@
 
 #include "GlyphLayout.h"
 #include <array>
+
+#include "../lib/irrlicht/source/Irrlicht/CGUISpriteBank.h"
 
 #ifndef SERVER_ONLY
 extern "C"
@@ -47,11 +50,7 @@ extern "C"
  */
 FontWithFace::FontWithFace(const std::string& name)
 {
-    m_spritebank = irr_driver->getGUI()->addEmptySpriteBank(name.c_str());
-
-    assert(m_spritebank != NULL);
-    m_spritebank->grab();
-
+    m_spritebank = new irr::gui::CGUISpriteBank(irr_driver->getGUI());
     m_fallback_font = NULL;
     m_fallback_font_scale = 1.0f;
     m_glyph_max_height = 0;
@@ -59,6 +58,7 @@ FontWithFace::FontWithFace(const std::string& name)
     m_face_dpi = 40;
     m_inverse_shaping = 1.0f;
 }   // FontWithFace
+
 // ----------------------------------------------------------------------------
 /** Destructor. Clears the glyph page and sprite bank.
  */
@@ -70,7 +70,6 @@ FontWithFace::~FontWithFace()
             static_cast<STKTexture*>(m_spritebank->getTexture(i)));
     }
     m_spritebank->drop();
-    m_spritebank = NULL;
 
     delete m_face_ttf;
 }   // ~FontWithFace
@@ -80,6 +79,7 @@ FontWithFace::~FontWithFace()
  */
 void FontWithFace::init()
 {
+    m_glyph_max_height = 0;
     setDPI();
 #ifndef SERVER_ONLY
     // Get the max height for this face
@@ -178,7 +178,7 @@ void FontWithFace::insertGlyph(unsigned font_number, unsigned glyph_index)
     FT_Face cur_face = m_face_ttf->getFace(font_number);
     FT_GlyphSlot slot = cur_face->glyph;
 
-    if (FT_HAS_COLOR(cur_face))
+    if (FT_HAS_COLOR(cur_face) && cur_face->num_fixed_sizes != 0)
     {
         font_manager->checkFTError(FT_Load_Glyph(cur_face, glyph_index,
             FT_LOAD_DEFAULT | FT_LOAD_COLOR), "loading a glyph");
@@ -190,8 +190,10 @@ void FontWithFace::insertGlyph(unsigned font_number, unsigned glyph_index)
         font_manager->checkFTError(FT_Set_Pixel_Sizes(cur_face, 0, getDPI()),
             "setting DPI");
 
+        unsigned flag = FT_HAS_COLOR(cur_face) ?
+            (FT_LOAD_DEFAULT | FT_LOAD_COLOR) : FT_LOAD_DEFAULT;
         font_manager->checkFTError(FT_Load_Glyph(cur_face, glyph_index,
-            FT_LOAD_DEFAULT), "loading a glyph");
+            flag), "loading a glyph");
 
         font_manager->checkFTError(shapeOutline(&(slot->outline)),
             "shaping outline");
@@ -269,7 +271,12 @@ void FontWithFace::insertGlyph(unsigned font_number, unsigned glyph_index)
                 ->getVideoDriver()->createImage(video::ECF_A8R8G8B8,
                 { cur_glyph_width , cur_glyph_height});
             assert(scaled);
-            if (cur_glyph_width >= bits->width ||
+            if (cur_glyph_width == bits->width &&
+                cur_glyph_height == bits->rows)
+            {
+                unscaled->copyTo(scaled);
+            }
+            else if (cur_glyph_width >= bits->width ||
                 cur_glyph_height >= bits->rows)
             {
                 unscaled->copyToScaling(scaled);
@@ -842,9 +849,9 @@ void FontWithFace::render(const std::vector<gui::GlyphLayout>& gl,
                 for (int y_delta = -thickness; y_delta <= thickness; y_delta++)
                 {
                     if (x_delta == 0 || y_delta == 0) continue;
-                    draw2DImage(texture, dest + core::position2d<float>
+                    FontDrawer::addGlyph(texture, dest + core::position2d<float>
                         (float(x_delta), float(y_delta)), source, clip,
-                        border_color, true);
+                        border_color);
                 }
             }
         }
@@ -860,11 +867,8 @@ void FontWithFace::render(const std::vector<gui::GlyphLayout>& gl,
     top.setAlpha(color.getAlpha());
     bottom.setAlpha(color.getAlpha());
 
-    std::array<video::SColor, 4> title_colors;
-    if (CVS->isGLSL())
-        title_colors = { { top, bottom, top, bottom } };
-    else
-        title_colors = { { bottom, top, top, bottom } };
+    std::array<video::SColor, 4> title_colors =
+        { { bottom, top , bottom, top } };
 
     video::SColor text_marked(220, 220, 220, 128);
     video::SColor text_neutral(35, 35, 35, 225);
@@ -906,8 +910,8 @@ void FontWithFace::render(const std::vector<gui::GlyphLayout>& gl,
             }
             else
             {
-                draw2DImage(texture, dest, source, clip,
-                    is_colored ? white.data() : title_colors.data(), true);
+                FontDrawer::addGlyph(texture, dest, source, clip,
+                    is_colored ? white.data() : title_colors.data());
             }
         }
         else
@@ -921,11 +925,13 @@ void FontWithFace::render(const std::vector<gui::GlyphLayout>& gl,
             }
             else
             {
-                draw2DImage(texture, dest, source, clip,
-                    is_colored ? video::SColor(-1) : color, true);
+                FontDrawer::addGlyph(texture, dest, source, clip,
+                    is_colored ? video::SColor(-1) : color);
             }
         }
     }
+    FontDrawer::draw();
+
     for (unsigned i = 0; i < gld_offsets.size(); i += 2)
     {
         if (df_used == gui::GLD_MARKED)

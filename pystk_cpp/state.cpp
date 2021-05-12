@@ -21,9 +21,11 @@
 #include "modes/soccer_world.hpp"
 #include "modes/free_for_all.hpp"
 #include "modes/three_strikes_battle.hpp"
+#include "tracks/check_manager.hpp"
 #include "tracks/drive_graph.hpp"
 #include "tracks/drive_node.hpp"
 #include "tracks/track.hpp"
+#include "tracks/check_goal.hpp"
 #include "utils/vec3.hpp"
 #include "view.hpp"
 #include "pickle.hpp"
@@ -255,27 +257,27 @@ struct PyKart {
 		py::class_<PyKart, std::shared_ptr<PyKart>> c(m, "Kart");
 		c
 #define R(x, d) .def_readonly(#x, &PyKart::x, d)
-		  R(id, "Kart id compatible with instance labels")
-		  R(player_id, "Player id")
-		  R(name, "Player name")
-		  R(location, "3D world location of the kart")
-		  R(rotation, "Quaternion rotation of the kart")
-		  R(front, "Front direction of kart 1/2 kart length forward from location")
-		  R(velocity, "Velocity of kart")
-		  R(size, "Width, height and length of kart")
-		  R(shield_time, "Second the shield is up for")
-		  R(race_result, "Did the kart finish the race?")
-		  R(jumping, "Is the kart jumping?")
-		  R(lap_time, "Time to completion for last lap")
-		  R(finished_laps, "Number of laps completed")
-		  R(overall_distance, "Overall distance traveled")
-		  R(distance_down_track, "Distance traveled on current lap")
-		  R(finish_time, "Time to complete race")
-		  R(attachment, "Attachment of kart")
-		  R(powerup, "Powerup collected")
-		  R(max_steer_angle, "Maximum steering angle")
-		  R(wheel_base, "Wheel base")
-		  R(lives, "Lives in three strikes battle")
+		  R(id, "Kart id compatible with instance labels (int)")
+		  R(player_id, "Player id (int)")
+		  R(name, "Player name (str)")
+		  R(location, "3D world location of the kart (float 3)")
+		  R(rotation, "Quaternion rotation of the kart (float 4)")
+		  R(front, "Front direction of kart 1/2 kart length forward from location (float 3)")
+		  R(velocity, "Velocity of kart (float 3)")
+		  R(size, "Width, height and length of kart (float 3)")
+		  R(shield_time, "Second the shield is up for (float)")
+		  R(race_result, "Did the kart finish the race? (bool)")
+		  R(jumping, "Is the kart jumping? (bool)")
+		  R(lap_time, "Time to completion for last lap (float)")
+		  R(finished_laps, "Number of laps completed (int)")
+		  R(overall_distance, "Overall distance traveled (float)")
+		  R(distance_down_track, "Distance traveled on current lap (float)")
+		  R(finish_time, "Time to complete race (float)")
+		  R(attachment, "Attachment of kart (Attachment)")
+		  R(powerup, "Powerup collected (Powerup)")
+		  R(max_steer_angle, "Maximum steering angle (float)")
+		  R(wheel_base, "Wheel base (float)")
+		  R(lives, "Lives in three strikes battle (int)")
 #undef R
 		 .def("__repr__", [](const PyKart &k) { return "<Kart id=" + std::to_string(k.id)+" player_id=" + std::to_string(k.player_id)+" name='"+k.name+"' ...>"; });
 		add_pickle(c);
@@ -373,7 +375,7 @@ struct PySoccerBall {
 	}
 	void update(const SoccerWorld * w) {
 		if (w) {
-			id = w->ballID();
+			// id = w->getBall()->get
 			location = P(w->getBallPosition());
 			size = w->getBallDiameter();
 		}
@@ -401,11 +403,11 @@ struct PySoccer {
 		if (w) {
 			score = {w->getScore((KartTeam)0), w->getScore((KartTeam)1)};
 			ball.update(w);
-            unsigned int n = CheckManager::get()->getCheckStructureCount();
+            unsigned int n = Track::getCurrentTrack()->getCheckManager()->getCheckStructureCount();
             for (unsigned int i = 0; i < n; i++)
             {
                 CheckGoal* goal = dynamic_cast<CheckGoal*>
-                    (CheckManager::get()->getCheckStructure(i));
+                    (Track::getCurrentTrack()->getCheckManager()->getCheckStructure(i));
                 if (goal)
                     goal_line[(int)goal->getTeam()] = {P(goal->getPoint(CheckGoal::POINT_FIRST)), P(goal->getPoint(CheckGoal::POINT_LAST))};
             }
@@ -622,7 +624,7 @@ struct PyWorldState {
 				ffa->update(fw);
 			}
 		}
-		ItemManager * im = ItemManager::get();
+		ItemManager * im = Track::getCurrentTrack()->getItemManager();
 		if (im) {
 			items.clear();
 			for(int i=0; i<im->getNumberOfItems(); i++) {

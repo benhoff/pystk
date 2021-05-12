@@ -31,19 +31,6 @@
 #import <time.h>
 #import "AppDelegate.h"
 
-#if defined _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
-
-#include <IOKit/IOKitLib.h>
-#include <IOKit/IOCFPlugIn.h>
-#ifdef MACOS_10_0_4
-#include <IOKit/hidsystem/IOHIDUsageTables.h>
-#else
-/* The header was moved here in Mac OS X 10.1 */
-#include <Kernel/IOKit/hidsystem/IOHIDUsageTables.h>
-#endif
-#include <IOKit/hid/IOHIDLib.h>
-#include <IOKit/hid/IOHIDKeys.h>
-
 // only OSX 10.5 seems to not need these defines...
 #if !defined(__MAC_10_5) || defined(__MAC_10_6)
 // Contents from Events.h from Carbon/HIToolbox but we need it with Cocoa too
@@ -184,6 +171,19 @@ enum {
 	kVK_UpArrow		= 0x7E
 };
 #endif
+
+#if defined _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
+
+#include <IOKit/IOKitLib.h>
+#include <IOKit/IOCFPlugIn.h>
+#ifdef MACOS_10_0_4
+#include <IOKit/hidsystem/IOHIDUsageTables.h>
+#else
+/* The header was moved here in Mac OS X 10.1 */
+#include <Kernel/IOKit/hidsystem/IOHIDUsageTables.h>
+#endif
+#include <IOKit/hid/IOHIDLib.h>
+#include <IOKit/hid/IOHIDKeys.h>
 
 struct JoystickComponent
 {
@@ -497,7 +497,12 @@ CIrrDeviceMacOSX::CIrrDeviceMacOSX(const SIrrlichtCreationParameters& param)
 			[[NSAutoreleasePool alloc] init];
 			[NSApplication sharedApplication];
 			[NSApp setDelegate:[[[AppDelegate alloc] initWithDevice:this] autorelease]];
-			[NSBundle loadNibNamed:@"MainMenu" owner:[NSApp delegate]];
+			NSMenu* mainMenu = [[[NSMenu alloc] initWithTitle:@""] autorelease];
+			[NSApp setMainMenu:mainMenu];
+			NSMenuItem* menuItem = [mainMenu addItemWithTitle:@"" action:nil keyEquivalent:@""];
+			NSMenu* menu = [[NSMenu alloc] initWithTitle:@""];
+			[menu addItemWithTitle:@"Quit SuperTuxKart" action:@selector(terminate:) keyEquivalent:@"q"];
+			[menuItem setSubmenu:[menu autorelease]];
 			[NSApp finishLaunching];
 		}
 
@@ -904,7 +909,7 @@ bool CIrrDeviceMacOSX::createWindow()
 		if(CreationParams.DriverType == video::EDT_OPENGL)
 		{
 			CGLSetCurrentContext(CGLContext);
-			newSwapInterval = (CreationParams.Vsync) ? 1 : 0;
+			newSwapInterval = CreationParams.SwapInterval;
 			CGLSetParameter(CGLContext,kCGLCPSwapInterval,&newSwapInterval);
 		}
 	}
@@ -985,10 +990,7 @@ void CIrrDeviceMacOSX::flush()
 {
 #ifndef SERVER_ONLY
 	if (CGLContext != NULL)
-	{
-		glFinish();
 		CGLFlushDrawable(CGLContext);
-	}
 #endif
 }
 

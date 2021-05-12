@@ -29,13 +29,41 @@
 #include "karts/abstract_kart.hpp"
 #include "karts/controller/controller.hpp"
 #include "modes/world.hpp"
-
 #include "utils/string_utils.hpp"
 
 #include <typeinfo>
 
-ProjectileManager *projectile_manager=0;
+//=============================================================================================
+ProjectileManager* g_projectile_manager[PT_COUNT];
+//---------------------------------------------------------------------------------------------
+ProjectileManager* ProjectileManager::get()
+{
+    ProcessType type = STKProcess::getType();
+    return g_projectile_manager[type];
+}   // get
 
+//---------------------------------------------------------------------------------------------
+void ProjectileManager::create()
+{
+    ProcessType type = STKProcess::getType();
+    g_projectile_manager[type] = new ProjectileManager();
+}   // create
+
+//---------------------------------------------------------------------------------------------
+void ProjectileManager::destroy()
+{
+    ProcessType type = STKProcess::getType();
+    delete g_projectile_manager[type];
+    g_projectile_manager[type] = NULL;
+}   // destroy
+
+//---------------------------------------------------------------------------------------------
+void ProjectileManager::clear()
+{
+    memset(g_projectile_manager, 0, sizeof(g_projectile_manager));
+}   // clear
+
+//---------------------------------------------------------------------------------------------
 void ProjectileManager::loadData()
 {
 }   // loadData

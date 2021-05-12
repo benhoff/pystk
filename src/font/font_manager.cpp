@@ -18,7 +18,6 @@
 
 #include "font/font_manager.hpp"
 
-#include "config/stk_config.hpp"
 #include "io/file_manager.hpp"
 #include "font/bold_face.hpp"
 #include "font/digit_face.hpp"
@@ -38,6 +37,7 @@ FontManager::FontManager()
     m_digit_face = NULL;
     m_shaping_dpi = 128;
 
+    m_hb_buffer = hb_buffer_create();
     checkFTError(FT_Init_FreeType(&m_ft_library), "loading freetype library");
 #endif
 }   // FontManager
@@ -72,10 +72,8 @@ std::vector<FT_Face>
     for (const std::string& font : ttf_list)
     {
         FT_Face face = NULL;
-        const std::string loc = file_manager
-            ->getAssetChecked(FileManager::TTF, font.c_str(), true);
         font_manager->checkFTError(FT_New_Face(
-            m_ft_library, loc.c_str(), 0, &face), loc + " is loaded");
+            m_ft_library, font.c_str(), 0, &face), font + " is loaded");
         ret.push_back(face);
     }
     return ret;
@@ -243,8 +241,32 @@ namespace LineBreakingRules
 void FontManager::shape(const std::u32string& text,
                         std::vector<irr::gui::GlyphLayout>& gls,
                         std::vector<std::u32string>* line_data)
-
 {
+    // Helper struct
+    struct ShapeGlyph
+    {
+        unsigned int index;
+        int x_advance;
+        int y_advance;
+        int x_offset;
+        int y_offset;
+        uint32_t cluster;
+        FT_Face ftface;
+    };
+    auto fill_shape_glyph = [](std::vector<ShapeGlyph>& shape_glyphs,
+        hb_buffer_t* hb_buffer, int offset, FT_Face ftface)
+    {
+        size_t len = hb_buffer_get_length(hb_buffer);
+        hb_glyph_info_t* info = hb_buffer_get_glyph_infos(hb_buffer, NULL);
+        hb_glyph_position_t* position =
+            hb_buffer_get_glyph_positions(hb_buffer, NULL);
+        for (size_t i = 0; i < len; i++)
+        {
+            shape_glyphs.push_back({info[i].codepoint, position[i].x_advance,
+                position[i].y_advance, position[i].x_offset,
+                position[i].y_offset, info[i].cluster + offset, ftface});
+        }
+    };
     // m_faces can be empty in null device
     if (text.empty() || m_faces.empty())
         return;
@@ -257,6 +279,7 @@ void FontManager::shape(const std::u32string& text,
 
     for (unsigned l = 0; l < lines.size(); l++)
     {
+        std::vector<ShapeGlyph> glyphs;
         if (l != 0)
         {
             gui::GlyphLayout gl = { 0 };
@@ -329,33 +352,6 @@ void FontManager::initGlyphLayouts(const core::stringw& text,
 // ----------------------------------------------------------------------------
 FT_Face FontManager::loadColorEmoji()
 {
-    if (stk_config->m_color_emoji_ttf.empty())
-        return NULL;
-    FT_Face face = NULL;
-    const std::string loc = file_manager->getAssetChecked(FileManager::TTF,
-        stk_config->m_color_emoji_ttf.c_str(), true);
-    FT_Error err = FT_New_Face(m_ft_library, loc.c_str(), 0, &face);
-    if (err > 0)
-    {
-        Log::error("FontManager", "Something wrong when loading color emoji! "
-            "The error code was %d.", err);
-        return NULL;
-    }
-
-    if (!FT_HAS_COLOR(face) || face->num_fixed_sizes == 0)
-    {
-        Log::error("FontManager", "Bad %s color emoji, ignored.",
-            stk_config->m_color_emoji_ttf.c_str());
-        checkFTError(FT_Done_Face(face), "removing faces for emoji");
-        return NULL;
-    }
-    // Use the largest size available, it will be scaled to regular face ttf
-    // when loading the glyph, so it can reduce the blurring effect
-    m_shaping_dpi = face->available_sizes[face->num_fixed_sizes - 1].height;
-    checkFTError(FT_Select_Size(face, face->num_fixed_sizes - 1),
-        "setting color emoji size");
-    m_has_color_emoji = true;
-    return face;
 }   // loadColorEmoji
 
 #endif
@@ -365,61 +361,4 @@ FT_Face FontManager::loadColorEmoji()
  */
 void FontManager::loadFonts()
 {
-#ifndef SERVER_ONLY
-    // First load the TTF files required by each font
-    std::vector<FT_Face> normal_ttf = loadTTF(stk_config->m_normal_ttf);
-    std::vector<FT_Face> bold_ttf = normal_ttf;
-    {
-        assert(!normal_ttf.empty());
-        FT_Face color_emoji = loadColorEmoji();
-        if (!normal_ttf.empty() && color_emoji != NULL)
-        {
-            // Put color emoji after 1st default font so can use it before wqy
-            // font
-            normal_ttf.insert(normal_ttf.begin() + 1, color_emoji);
-            // We don't use color emoji in bold font
-            bold_ttf.insert(bold_ttf.begin() + 1, NULL);
-        }
-        // We use 16bit face idx in GlyphLayout class
-        if (normal_ttf.size() > 65535)
-            normal_ttf.resize(65535);
-        for (uint16_t i = 0; i < normal_ttf.size(); i++)
-            m_ft_faces_to_index[normal_ttf[i]] = i;
-    }
-
-    std::vector<FT_Face> digit_ttf = loadTTF(stk_config->m_digit_ttf);
-    if (!digit_ttf.empty())
-        m_digit_face = digit_ttf.front();
-#endif
-
-    // Now load fonts with settings of ttf file
-    unsigned int font_loaded = 0;
-    RegularFace* regular = new RegularFace();
-#ifndef SERVER_ONLY
-    regular->getFaceTTF()->loadTTF(normal_ttf);
-#endif
-    regular->init();
-    m_fonts.push_back(regular);
-    m_font_type_map[std::type_index(typeid(RegularFace))] = font_loaded++;
-
-    BoldFace* bold = new BoldFace();
-#ifndef SERVER_ONLY
-    bold->getFaceTTF()->loadTTF(bold_ttf);
-#endif
-    bold->init();
-    m_fonts.push_back(bold);
-    m_font_type_map[std::type_index(typeid(BoldFace))] = font_loaded++;
-
-    DigitFace* digit = new DigitFace();
-#ifndef SERVER_ONLY
-    digit->getFaceTTF()->loadTTF(digit_ttf);
-#endif
-    digit->init();
-    m_fonts.push_back(digit);
-    m_font_type_map[std::type_index(typeid(DigitFace))] = font_loaded++;
-
-#ifndef SERVER_ONLY
-    m_faces.insert(m_faces.end(), normal_ttf.begin(), normal_ttf.end());
-#endif
 }   // loadFonts
-// ---------------------------------------------------

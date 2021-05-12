@@ -32,10 +32,9 @@ namespace Scripting
         // TODO: does this even belong in Physics?
         void createExplosion(asIScriptGeneric *gen)
         {
-            //TODO: allow different types? sand etc
             Vec3 *explosion_loc = (Vec3*)gen->GetArgAddress(0);
             HitEffect *he = new Explosion(*explosion_loc, "explosion_bomb.xml");
-            projectile_manager->addHitEffect(he);
+            ProjectileManager::get()->addHitEffect(he);
         }
         void registerScriptFunctions(asIScriptEngine *engine)
         {

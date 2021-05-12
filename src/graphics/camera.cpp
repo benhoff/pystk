@@ -28,7 +28,6 @@
 #include "karts/abstract_kart.hpp"
 #include "karts/explosion_animation.hpp"
 #include "karts/kart.hpp"
-#include "karts/kart_properties.hpp"
 #include "karts/skidding.hpp"
 #include "physics/btKart.hpp"
 #include "race/race_manager.hpp"
@@ -184,6 +183,7 @@ void Camera::setupCamera()
  */
 void Camera::setMode(Mode mode)
 {
+    if (mode == m_mode) return;
     // If we switch from reverse view, move the camera immediately to the
     // correct position.
     if( (m_mode==CM_REVERSE && mode==CM_NORMAL) || 
@@ -198,6 +198,7 @@ void Camera::setMode(Mode mode)
         m_camera->setTarget(target_position.toIrrVector());
     }
 
+    m_previous_mode = m_mode;
     m_mode = mode;
 }   // setMode
 
@@ -208,6 +209,18 @@ Camera::Mode Camera::getMode()
 {
     return m_mode;
 }   // getMode
+
+// ----------------------------------------------------------------------------
+/** Returns the last kwown mode of the camera.
+ */
+Camera::Mode Camera::getPreviousMode()
+{
+    return m_previous_mode;
+}   // getPreviousMode
+
+// ----------------------------------------------------------------------------
+/** Returns true if camera is a spectator camera
+ */
 
 //-----------------------------------------------------------------------------
 /** Reset is called when a new race starts. Make sure that the camera

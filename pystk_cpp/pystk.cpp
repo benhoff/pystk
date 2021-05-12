@@ -73,6 +73,7 @@
 #include "karts/kart_properties.hpp"
 #include "karts/kart_properties_manager.hpp"
 #include "modes/world.hpp"
+#include "physics/physics.hpp"
 #include "race/race_manager.hpp"
 #include "scriptengine/property_animator.hpp"
 #include "tracks/arena_graph.hpp"
@@ -89,6 +90,8 @@
 #include "utils/objecttype.h"
 #include "util.hpp"
 #include "buffer.hpp"
+
+#include "BulletCollision/CollisionDispatch/btCollisionWorld.h"
 
 #ifdef RENDERDOC
 #include "renderdoc_app.h"
@@ -159,6 +162,93 @@ public:
     PySTKRenderTarget(std::unique_ptr<RenderTarget>&& rt);
     
 };
+
+Kart::Kart(int number)
+    : m_kart(World::getWorld()->getPlayerKart(number))
+{
+}
+
+void Kart::getSurroundings()
+{
+	int radius = 5;
+	// means that there is a ray for every 10 degrees
+	// This is a sphere, so we're shooting on polar coordinates likely
+	three_array array;
+    const Vec3 cart_xyz = m_kart->getXYZ();
+
+	for (int theta=0; theta <= 360; theta += 10) {
+		for (int omega=0; omega <= 360; omega+= 10) {
+			float x = radius * cos(omega) * sin(theta);
+			float y = radius * sin(omega) * sin(theta);
+			float z = radius * cos(theta);
+
+			Vec3 my_vec;
+
+			my_vec[0] = x + cart_xyz[0];
+			my_vec[1] = x + cart_xyz[1];
+			my_vec[2] = x + cart_xyz[2];
+
+			btCollisionWorld::ClosestRayResultCallback ray_callback(cart_xyz,
+									       	my_vec);
+            Physics::get()->getPhysicsWorld()->rayTest(cart_xyz, my_vec, ray_callback);
+
+            // Physics::get()->getPhysicsWorld()->rayTest(cart_xyz, my_vec, ray_callback);
+
+			if(ray_callback.hasHit()) {
+				float distance = abs(sqrt(pow(cart_xyz[0] - my_vec[0], 2) +
+							  pow(cart_xyz[1] - my_vec[1], 2) +
+							  pow(cart_xyz[2] - my_vec[2], 2)));
+
+				for (int i=0; i<radius; i++) {
+					if (distance < i) {
+						array[theta][omega][i] = 0;
+					}
+					else {
+						btCollisionObject* hit_object = ray_callback.m_collisionObject;
+						const UserPointer *upA = (UserPointer*)(hit_object->getUserPointer());
+
+						// 1) object A is a track
+						// =======================
+						if(upA->is(UserPointer::UP_TRACK))
+						{
+							array[theta][omega][i] = 1;
+						}
+						// 2) object a is a kart
+						// =====================
+						else if(upA->is(UserPointer::UP_KART))
+						{
+							array[theta][omega][i] = 2;
+						}
+						// 3) object is a projectile
+						// =========================
+						else if(upA->is(UserPointer::UP_FLYABLE))
+						{
+							array[theta][omega][i] = 3;
+						}
+						// Object is a physical object
+						// ===========================
+						else if(upA->is(UserPointer::UP_PHYSICAL_OBJECT))
+						{
+							array[theta][omega][i] = 4;
+						}
+						else if (upA->is(UserPointer::UP_ANIMATION))
+						{
+							array[theta][omega][i] = 5;
+						}
+						else
+						    assert("Unknown user pointer");           // 4) Should never happen
+					}
+				}
+
+			}
+			else {
+				for (int i=0; i<radius; i++) {
+					array[theta][omega][i] = 0;
+				}
+			}
+		} // for omega
+	} // for theta
+}
 
 PySTKRenderTarget::PySTKRenderTarget(std::unique_ptr<RenderTarget>&& rt):rt_(std::move(rt)) {
     int W = rt_->getTextureSize().Width, H = rt_->getTextureSize().Height;
@@ -347,8 +437,8 @@ void PySTKRace::restart() {
 }
 
 void PySTKRace::start() {
-    race_manager->setupPlayerKartInfo();
-    race_manager->startNew();
+    RaceManager::get()->setupPlayerKartInfo();
+    RaceManager::get()->startNew();
     time_leftover_ = 0.f;
     
     for(int i=0; i<config_.players.size(); i++) {
@@ -370,7 +460,7 @@ void PySTKRace::stop() {
 
     if (World::getWorld())
     {
-        race_manager->exitRace();
+        RaceManager::get()->exitRace();
     }
 }
 void PySTKRace::render(float dt) {
@@ -440,7 +530,7 @@ bool PySTKRace::step() {
 #ifdef RENDERDOC
     if(rdoc_api) rdoc_api->EndFrameCapture(NULL, NULL);
 #endif
-    return race_manager && race_manager->getFinishedPlayers() < race_manager->getNumPlayers();
+    return RaceManager::get()->getFinishedPlayers() < RaceManager::get()->getNumPlayers();
 }
 
 void PySTKRace::load() {
@@ -452,7 +542,7 @@ void PySTKRace::load() {
     // Reading the rest of the player data needs the unlock manager to
     // initialise the game slots of all players and the AchievementsManager
     // to initialise the AchievementsStatus, so it is done only now.
-    projectile_manager->loadData();
+    ProjectileManager::get()->loadData();
 
     // Both item_manager and powerup_manager load models and therefore
     // textures from the model directory. To avoid reading the
@@ -490,27 +580,26 @@ static RaceManager::MinorRaceModeType translate_mode(PySTKRaceConfig::RaceMode m
 
 void PySTKRace::setupConfig(const PySTKRaceConfig & config) {
     config_ = config;
-    
-    race_manager->setDifficulty(RaceManager::Difficulty(config.difficulty));
-    race_manager->setMinorMode(translate_mode(config.mode));
-    race_manager->setNumPlayers(config.players.size());
+    RaceManager::get()->setDifficulty(RaceManager::Difficulty(config.difficulty));
+    RaceManager::get()->setMinorMode(translate_mode(config.mode));
+    RaceManager::get()->setNumPlayers(config.players.size());
     for(int i=0; i<config.players.size(); i++) {
         std::string kart = config.players[i].kart.size() ? config.players[i].kart : (std::string)UserConfigParams::m_default_kart;
         const KartProperties *prop = kart_properties_manager->getKart(kart);
         if (!prop)
             kart = UserConfigParams::m_default_kart;
-        race_manager->setPlayerKart(i, kart);
-        race_manager->setKartTeam(i, (KartTeam)config.players[i].team);
+        RaceManager::get()->setPlayerKart(i, kart);
+        RaceManager::get()->setKartTeam(i, (KartTeam)config.players[i].team);
     }
-    race_manager->setReverseTrack(config.reverse);
+    RaceManager::get()->setReverseTrack(config.reverse);
     if (config.track.length())
-        race_manager->setTrack(config.track);
+        RaceManager::get()->setTrack(config.track);
     else
-        race_manager->setTrack("lighthouse");
+        RaceManager::get()->setTrack("lighthouse");
     
-    race_manager->setNumLaps(config.laps);
-    race_manager->setNumKarts(config.num_kart);
-    race_manager->setMaxGoal(1<<30);
+    RaceManager::get()->setNumLaps(config.laps);
+    RaceManager::get()->setNumKarts(config.num_kart);
+    RaceManager::get()->setMaxGoal(1<<30);
 }
 
 void PySTKRace::initGraphicsConfig(const PySTKGraphicsConfig & config) {
@@ -572,7 +661,7 @@ void PySTKRace::initRest()
     material_manager        = new MaterialManager      ();
     track_manager           = new TrackManager         ();
     kart_properties_manager = new KartPropertiesManager();
-    projectile_manager      = new ProjectileManager    ();
+    ProjectileManager::create();
     powerup_manager         = new PowerupManager       ();
     attachment_manager      = new AttachmentManager    ();
 
@@ -591,12 +680,12 @@ void PySTKRace::initRest()
 
     track_manager->loadTrackList();
 
-    race_manager            = new RaceManager          ();
+    RaceManager::create();
     // default settings for Quickstart
-    race_manager->setNumPlayers(1);
-    race_manager->setNumLaps   (3);
-    race_manager->setMinorMode (RaceManager::MINOR_MODE_NORMAL_RACE);
-    race_manager->setDifficulty(
+    RaceManager::get()->setNumPlayers(1);
+    RaceManager::get()->setNumLaps   (3);
+    RaceManager::get()->setMinorMode (RaceManager::MINOR_MODE_NORMAL_RACE);
+    RaceManager::get()->setDifficulty(
                  (RaceManager::Difficulty)(int)UserConfigParams::m_difficulty);
 
     kart_properties_manager -> loadAllKarts(false);
@@ -611,15 +700,13 @@ void PySTKRace::cleanSuperTuxKart()
     // Stop music (this request will go into the sfx manager queue, so it needs
     // to be done before stopping the thread).
     irr_driver->updateConfigIfRelevant();
-    if(race_manager)            delete race_manager;
-    race_manager = nullptr;
+    RaceManager::destroy();
     if(attachment_manager)      delete attachment_manager;
     attachment_manager = nullptr;
     ItemManager::removeTextures();
     if(powerup_manager)         delete powerup_manager;
     powerup_manager = nullptr;
-    if(projectile_manager)      delete projectile_manager;
-    projectile_manager = nullptr;
+    ProjectileManager::destroy();
     if(kart_properties_manager) delete kart_properties_manager;
     kart_properties_manager = nullptr;
     if(track_manager)           delete track_manager;

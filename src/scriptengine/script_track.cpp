@@ -148,17 +148,35 @@ namespace Scripting
 
         int getNumberOfKarts()
         {
-            return race_manager->getNumberOfKarts();
+            return RaceManager::get()->getNumberOfKarts();
         }
 
         int getNumLocalPlayers()
         {
-            return race_manager->getNumLocalPlayers();
+            return RaceManager::get()->getNumLocalPlayers();
         }
-
+        
+        /**
+          * Gets the kart type, such as local player, networked player, AI, etc.
+          * @return A KartType enum as defined in race_manager.hpp, implicitly casted to an int
+          */
+        int getKartType(int kartId)
+        {
+            return RaceManager::get()->getKartType(kartId);
+        }
+        
         bool isTrackReverse()
         {
-            return race_manager->getReverseTrack();
+            return RaceManager::get()->getReverseTrack();
+        }
+        
+        /**
+          * Gets the difficulty setting for this race.
+          * @return A Difficulty enum as defined in race_manager.hpp, implicitly casted to an int
+          */
+        int getDifficulty()
+        {
+            return RaceManager::get()->getDifficulty();
         }
 
         int getMajorRaceMode()
@@ -168,7 +186,7 @@ namespace Scripting
 
         int getMinorRaceMode()
         {
-            return race_manager->getMinorMode();
+            return RaceManager::get()->getMinorMode();
         }
 
         bool isDuringDay()
@@ -531,9 +549,17 @@ namespace Scripting
             r = engine->RegisterGlobalFunction("int getNumLocalPlayers()", 
                                                mp ? WRAP_FN(getNumLocalPlayers) : asFUNCTION(getNumLocalPlayers), 
                                                call_conv); assert(r >= 0);
+            
+            r = engine->RegisterGlobalFunction("int getKartType(int kartId)", 
+                                               mp ? WRAP_FN(getKartType) : asFUNCTION(getKartType), 
+                                               call_conv); assert(r >= 0);
                                                
             r = engine->RegisterGlobalFunction("bool isReverse()", 
                                                mp ? WRAP_FN(isTrackReverse) : asFUNCTION(isTrackReverse), 
+                                               call_conv); assert(r >= 0);
+            
+            r = engine->RegisterGlobalFunction("int getDifficulty()", 
+                                               mp ? WRAP_FN(getDifficulty) : asFUNCTION(getDifficulty), 
                                                call_conv); assert(r >= 0);
                                                
             r = engine->RegisterGlobalFunction("int getMajorRaceMode()", 

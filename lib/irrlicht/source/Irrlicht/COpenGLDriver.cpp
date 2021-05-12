@@ -19,9 +19,6 @@ extern bool GLContextDebugBit;
 #include "os.h"
 #include "IrrlichtDevice.h"
 
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
-#include <SDL/SDL.h>
-#endif
 
 #ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
 #include "MacOSX/CIrrDeviceMacOSX.h"
@@ -583,7 +580,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 
 	genericDriverInit();
 
-	extGlSwapInterval(Params.Vsync ? 1 : 0);
+	extGlSwapInterval(Params.SwapInterval);
 	return true;
 }
 
@@ -762,7 +759,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceLinux* device)
 	genericDriverInit();
 
 	// set vsync
-	extGlSwapInterval(Params.Vsync ? 1 : 0);
+	extGlSwapInterval(Params.SwapInterval);
 	return true;
 }
 
@@ -818,26 +815,6 @@ bool COpenGLDriver::initDriver(CIrrDeviceWayland* device)
 // -----------------------------------------------------------------------
 // SDL CONSTRUCTOR
 // -----------------------------------------------------------------------
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
-//! SDL constructor and init code
-COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, CIrrDeviceSDL* device)
-: CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
-	CurrentRenderMode(ERM_NONE), ResetRenderStates(true),
-	Transformation3DChanged(true), AntiAlias(params.AntiAlias),
-	RenderTargetTexture(0), CurrentRendertargetSize(0,0), ColorFormat(ECF_R8G8B8),
-	CurrentTarget(ERT_FRAME_BUFFER), Params(params),
-	SDLDevice(device), DeviceType(EIDT_SDL)
-{
-	#ifdef _DEBUG
-	setDebugName("COpenGLDriver");
-	#endif
-
-	genericDriverInit();
-	m_device = device;
-}
-
-#endif // _IRR_COMPILE_WITH_SDL_DEVICE_
 
 
 //! destructor
@@ -1094,13 +1071,6 @@ bool COpenGLDriver::endScene()
 	}
 #endif
 
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
-	if (DeviceType == EIDT_SDL)
-	{
-		SDL_GL_SwapBuffers();
-		return true;
-	}
-#endif
 
 	// todo: console device present
 
@@ -1174,14 +1144,6 @@ bool COpenGLDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
 		break;
 	}
 
-#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
-	if (DeviceType == EIDT_SDL)
-	{
-		// todo: SDL sets glFrontFace(GL_CCW) after driver creation,
-		// it would be better if this was fixed elsewhere.
-		glFrontFace(GL_CW);
-	}
-#endif
 
 	clearBuffers(backBuffer, zBuffer, false, color);
 	return true;
@@ -5152,20 +5114,6 @@ IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
 }
 #endif // _IRR_COMPILE_WITH_OFF_SCREEN_OSX_DEVICE_
 
-// -----------------------------------
-// SDL VERSION
-// -----------------------------------
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
-IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, CIrrDeviceSDL* device)
-{
-#ifdef _IRR_COMPILE_WITH_OPENGL_
-	return new COpenGLDriver(params, io, device);
-#else
-	return 0;
-#endif //  _IRR_COMPILE_WITH_OPENGL_
-}
-#endif // _IRR_COMPILE_WITH_SDL_DEVICE_
 
 } // end namespace
 } // end namespace

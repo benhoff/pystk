@@ -1,10 +1,15 @@
 bld*/
 build*/
 cmake_build*/
+xcode_build*/
 dependencies*/
 CMakeFiles/
 stk-editor/
 .vscode/
+PySuperTuxKart.egg-info/*
+venv/*
+compile_commands.json
+tags.*
 
 .config/
 supertuxkart-64
@@ -62,6 +67,8 @@ android/libs
 android/obj
 android/res
 android/.gradle
+android/src/main/java/HID*
+android/src/main/java/SDL*
 android-*
 *.apk
 *.keystore
@@ -79,3 +86,17 @@ Pipfile
 **.so
 **.idea
 pystk.egg-info
+lib/curl
+lib/freetype
+lib/ifaddrs
+lib/libogg
+lib/libvorbis
+lib/libpng
+lib/libjpeg
+lib/zlib
+lib/openal
+lib/openssl
+lib/fribidi
+lib/harfbuzz
+lib/sdl2
+

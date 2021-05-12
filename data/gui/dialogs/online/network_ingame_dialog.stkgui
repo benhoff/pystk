@@ -4,9 +4,11 @@
         <div x="1%" width="98%" height="fit" layout="horizontal-row">
             <textbox id="chat" proportion="1"/>
             <spacer width="2%" height="10"/>
-            <button id="send" width="10%" height="fit" align="center" text=""/>
+            <button id="team" width="7%" height="fit" align="center" text=""/>
+            <spacer id="team_space" width="1%" height="10"/>
+            <button id="send" width="7%" height="fit" align="center" text=""/>
             <spacer width="1%" height="10"/>
-            <button id="emoji" width="10%" height="fit" align="center" text=""/>
+            <button id="emoji" width="7%" height="fit" align="center" text=""/>
         </div>
 
         <spacer width="20" height="2%" />
@@ -14,6 +16,8 @@
         <buttonbar id="backbtnribbon" proportion="4" width="100%" align="center">
             <icon-button id="backbtn" width="128" height="128" align="center" icon="gui/icons/back.png"
                          extend_label="200" I18N="Race paused button" text="Back to Race"/>
+            <icon-button id="touch_device" width="128" height="128" align="center" icon="gui/icons/android/gyroscope_icon.png"
+                         extend_label="200" I18N="Race paused button" text="Gyroscope"/>
         </buttonbar>
 
         <spacer width="20" height="8%" />
@@ -37,7 +41,7 @@
                     I18N="Race paused button" text="Help" word_wrap="true"/>
 
             <icon-button id="exit" width="128" height="128" icon="gui/icons/main_quit.png"
-                         I18N="Race paused button" text="Exit Race" word_wrap="true"/>
+                         I18N="Race paused button" text="Quit Server" word_wrap="true"/>
 
         </buttonbar>
 

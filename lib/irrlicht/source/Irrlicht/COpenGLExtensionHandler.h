@@ -7,6 +7,7 @@
 
 #include "IrrCompileConfig.h"
 #ifdef _IRR_COMPILE_WITH_OPENGL_
+#define GL_SILENCE_DEPRECATION
 
 #include "EDriverFeatures.h"
 #include "irrTypes.h"
@@ -2387,7 +2388,7 @@ inline void COpenGLExtensionHandler::extGlProgramParameteri(GLhandleARB program,
 			pGlProgramParameteriEXT(program, pname, value);
 	}
 #elif defined(GL_ARB_geometry_shader4)
-	glProgramParameteriARB(program, pname, value);
+	glProgramParameteriARB((size_t)program, pname, value);
 #elif defined(GL_EXT_geometry_shader4)
     #ifdef __clang__
     glProgramParameteriEXT((long)program, pname, value);

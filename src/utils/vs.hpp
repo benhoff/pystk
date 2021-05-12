@@ -40,8 +40,17 @@
 #  include <windows.h>
 #endif
 
-#if defined(__linux__) && defined(__GLIBC__) && defined(__GLIBC_MINOR__)
+#if (defined(__linux__) && defined(__GLIBC__) && defined(__GLIBC_MINOR__)) || defined(__NetBSD__)
 #  include <pthread.h>
+#endif
+
+#if defined(__FreeBSD__)
+#  include <pthread.h>
+#  include <pthread_np.h>
+#endif
+
+#if defined(__HAIKU__)
+#  include <kernel/scheduler.h>
 #endif
 
 namespace VS
@@ -82,17 +91,21 @@ namespace VS
         }
 
     }   // setThreadName
-#elif defined(__linux__) && defined(__GLIBC__) && defined(__GLIBC_MINOR__)
-    static void setThreadName(const char* name)
-    {
-#if __GLIBC__ > 2 || __GLIBC_MINOR__ > 11
-        pthread_setname_np(pthread_self(), name);
-#endif
-    }   // setThreadName
 #else
     static void setThreadName(const char* name)
     {
-    }
+#if defined(__linux__) && defined(__GLIBC__) && defined(__GLIBC_MINOR__)
+#if __GLIBC__ > 2 || __GLIBC_MINOR__ > 11
+        pthread_setname_np(pthread_self(), name);
+#endif
+#elif defined(__FreeBSD__)
+        pthread_set_name_np(pthread_self(), name);
+#elif defined(__NetBSD__)
+        pthread_setname_np(pthread_self(), "%s", const_cast<char *>(name));
+#elif defined(__HAIKU__)
+        rename_thread(find_thread(nullptr), name);
+#endif
+    }   // setThreadName
 #endif
 
 }   // namespace VS

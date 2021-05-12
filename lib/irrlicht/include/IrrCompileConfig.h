@@ -22,6 +22,7 @@
 //! _IRR_WINDOWS_CE_PLATFORM_ for Windows CE
 //! _IRR_WINDOWS_API_ for Windows or XBox
 //! _IRR_LINUX_PLATFORM_ for Linux (it is defined here if no other os is defined)
+//! _IRR_HAIKU_PLATFORM_ for Haiku
 //! _IRR_SOLARIS_PLATFORM_ for Solaris
 //! _IRR_OSX_PLATFORM_ for Apple systems running OSX
 //! _IRR_IOS_PLATFORM_ for Apple devices running iOS
@@ -42,11 +43,14 @@
 //! different library versions without having to change the sources.
 //! Example: NO_IRR_COMPILE_WITH_X11_ would disable X11
 
-
+#define NO_IRR_COMPILE_WITH_SDL_DEVICE_
 //! Uncomment this line to compile with the SDL device
 //#define _IRR_COMPILE_WITH_SDL_DEVICE_
-#ifdef NO_IRR_COMPILE_WITH_SDL_DEVICE_
+// Always use SDL2 in STK unless server only compilation
+#if defined(NO_IRR_COMPILE_WITH_SDL_DEVICE_)
 #undef _IRR_COMPILE_WITH_SDL_DEVICE_
+#else
+#define _IRR_COMPILE_WITH_SDL_DEVICE_
 #endif
 
 //! WIN32 for Windows32
@@ -55,7 +59,6 @@
 #if defined(_WIN32) || defined(_WIN64) || defined(WIN32) || defined(WIN64)
 #define _IRR_WINDOWS_
 #define _IRR_WINDOWS_API_
-#define _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 #endif
 
 
@@ -68,10 +71,6 @@
     #undef _IRR_WINDOWS_
     #define _IRR_XBOX_PLATFORM_
     #define _IRR_WINDOWS_API_
-    //#define _IRR_COMPILE_WITH_WINDOWS_DEVICE_
-    #undef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
-    //#define _IRR_COMPILE_WITH_SDL_DEVICE_
-
     #include <xtl.h>
 #endif
 
@@ -85,16 +84,20 @@
 
 #if defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) || defined(__IPHONE_OS_VERSION_MIN_REQUIRED)
 #define _IRR_IOS_PLATFORM_
-#define _IRR_COMPILE_WITH_IOS_DEVICE_
+#undef _IRR_COMPILE_WITH_IOS_DEVICE_
+#define _IRR_COMPILE_WITH_SDL_DEVICE_
 #define _IRR_COMPILE_WITH_OGLES2_
 #else
-#define _IRR_COMPILE_WITH_OSX_DEVICE_
 #endif
 #endif
 
-// Disable macOS/OSX device
-#ifdef NO_IRR_COMPILE_WITH_OSX_DEVICE_
-#undef _IRR_COMPILE_WITH_OSX_DEVICE_
+#if defined(HAIKU)
+#define _IRR_HAIKU_PLATFORM_
+#endif
+
+#if defined(_IRR_HAIKU_PLATFORM_)
+#define _IRR_COMPILE_WITH_SDL_DEVICE_
+#define _IRR_COMPILE_WITH_OPENGL_
 #endif
 
 #if defined(ANDROID)
@@ -103,29 +106,23 @@
 #endif
 
 #if defined(_IRR_ANDROID_PLATFORM_)
-#define _IRR_COMPILE_WITH_ANDROID_DEVICE_
+#define _IRR_COMPILE_WITH_SDL_DEVICE_
 #define _IRR_COMPILE_WITH_OGLES2_
-#define _IRR_COMPILE_ANDROID_ASSET_READER_
 #endif
 
-#if defined(_IRR_COMPILE_WITH_OGLES2_) && !defined(_IRR_COMPILE_WITH_IOS_DEVICE_)
-#define _IRR_COMPILE_WITH_EGL_
-#endif
-
-#if !defined(_IRR_WINDOWS_API_) && !defined(_IRR_OSX_PLATFORM_) && !defined(_IRR_ANDROID_PLATFORM_)
+#if !defined(_IRR_WINDOWS_API_) && !defined(_IRR_OSX_PLATFORM_) && !defined(_IRR_ANDROID_PLATFORM_) && !defined(_IRR_HAIKU_PLATFORM_)
 #ifndef _IRR_SOLARIS_PLATFORM_
 #define _IRR_LINUX_PLATFORM_
 #endif
 #define _IRR_POSIX_API_
-#define _IRR_COMPILE_WITH_X11_DEVICE_
-//#define _IRR_COMPILE_WITH_WAYLAND_DEVICE_
 #endif
 
 #ifdef NO_IRR_COMPILE_WITH_WAYLAND_DEVICE_
 #undef _IRR_COMPILE_WITH_WAYLAND_DEVICE_
 #endif
 
-#ifdef _IRR_COMPILE_WITH_WAYLAND_DEVICE_
+
+#if defined(_IRR_COMPILE_WITH_OGLES2_) && !defined(_IRR_COMPILE_WITH_IOS_DEVICE_) && !defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
 #define _IRR_COMPILE_WITH_EGL_
 #endif
 
@@ -136,11 +133,7 @@
 
 
 //! Define _IRR_COMPILE_WITH_JOYSTICK_SUPPORT_ if you want joystick events.
-#define _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
-#ifdef NO_IRR_COMPILE_WITH_JOYSTICK_EVENTS_
 #undef _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
-#endif
-
 
 //! Maximum number of texture an SMaterial can have, up to 8 are supported by Irrlicht.
 #define _IRR_MATERIAL_MAX_TEXTURES_ 8

@@ -60,6 +60,7 @@ struct PySTKRenderData {
 
 class KartControl;
 class Controller;
+
 struct PySTKAction {
 	float steering_angle = 0;
 	float acceleration = 0;
@@ -70,6 +71,22 @@ struct PySTKAction {
 	bool fire = false;
 	void set(KartControl * control) const;
 	void get(const KartControl * control);
+};
+
+// Note: it would likely be easier to just define this here
+// radius = 5
+typedef std::array<std::array<std::array<int, 36>, 36>, 5> three_array;
+class AbstractKart;
+
+class Kart {
+public:
+    Kart(int kart_number);
+
+    void getSurroundings();
+
+private:
+    AbstractKart *m_kart;
+	
 };
 
 class PySTKRace {

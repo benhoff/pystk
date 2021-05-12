@@ -625,7 +625,6 @@ bool KartModel::loadModels(const KartProperties &kart_properties)
     m_kart_highest_point = kart_max.getY();
     m_kart_lowest_point  = kart_min.getY();
     initInverseBoneMatrices();
-
     // Load the speed weighted object models. We need to do that now because it can affect the dimensions of the kart
     for(size_t i=0 ; i < m_speed_weighted_objects.size() ; i++)
     {
@@ -675,7 +674,10 @@ bool KartModel::loadModels(const KartProperties &kart_properties)
     {
         HeadlightObject& obj = m_headlight_objects[i];
         std::string full_name = kart_properties.getKartDir() + obj.getFilename();
-        obj.setModel(irr_driver->getMesh(full_name));
+        scene::IMesh* mesh = irr_driver->getMesh(full_name);
+        if (!mesh)
+            continue;
+        obj.setModel(mesh);
 #ifndef SERVER_ONLY
         SP::uploadSPM(obj.getModel());
 #endif

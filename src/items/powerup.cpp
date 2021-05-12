@@ -112,6 +112,7 @@ void Powerup::use()
 
     m_number--;
     World *world = World::getWorld();
+    ItemManager* im = Track::getCurrentTrack()->getItemManager();
     switch (m_type)
     {
     case PowerupManager::POWERUP_ZIPPER:
@@ -119,7 +120,7 @@ void Powerup::use()
         break ;
     case PowerupManager::POWERUP_SWITCH:
         {
-            ItemManager::get()->switchItems();
+            im->switchItems();
             break;
         }
     case PowerupManager::POWERUP_CAKE:
@@ -128,7 +129,7 @@ void Powerup::use()
     case PowerupManager::POWERUP_PLUNGER:
         if(stk_config->m_shield_restrict_weapons)
             m_kart->setShieldTime(0.0f); // make weapon usage destroy the shield
-        projectile_manager->newProjectile(m_kart, m_type);
+        ProjectileManager::get()->newProjectile(m_kart, m_type);
         break ;
 
     case PowerupManager::POWERUP_SWATTER:
@@ -141,8 +142,7 @@ void Powerup::use()
         // use the bubble gum the traditional way, if the kart is looking back
         if (m_kart->getControls().getLookBack())
         {
-            Item *new_item = 
-                ItemManager::get()->dropNewItem(Item::ITEM_BUBBLEGUM, m_kart);
+            Item *new_item = im->dropNewItem(Item::ITEM_BUBBLEGUM, m_kart);
 
             // E.g. ground not found in raycast.
             if(!new_item) return;
@@ -247,7 +247,7 @@ void Powerup::use()
 
                     kart->getAttachment()
                         ->set(Attachment::ATTACH_PARACHUTE,
-                              int(kp->getParachuteDurationOther()*rank_mult) );
+                              stk_config->time2Ticks(kp->getParachuteDurationOther()*rank_mult) );
 
                     if(kart->getController()->isLocalPlayerController())
                         player_kart = kart;

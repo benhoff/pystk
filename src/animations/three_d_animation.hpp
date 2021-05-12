@@ -78,6 +78,8 @@ public:
     bool isCrashReset() const { return m_crash_reset; }
     bool isExplodeKartObject() const { return m_explode_kart; }
     bool isFlattenKartObject() const { return m_flatten_kart; }
+    // ------------------------------------------------------------------------
+    ThreeDAnimation* clone(TrackObject* obj);
 };   // ThreeDAnimation
 #endif
 

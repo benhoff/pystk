@@ -310,7 +310,7 @@ void PowerupManager::WeightsData::convertRankToSection(int rank, int *prev,
 
     // In FTL mode the first section is for the leader, the 
     // second section is used for the first non-leader kart.
-    if (race_manager->isFollowMode() && rank == 2)
+    if (RaceManager::get()->isFollowMode() && rank == 2)
     {
         *prev = *next = 1;
         *weight = 1.0f;
@@ -322,7 +322,7 @@ void PowerupManager::WeightsData::convertRankToSection(int rank, int *prev,
 
     // Get the first index that is used for a section (FTL is
     // special since index 2 is for the first non-leader kart):
-    int first_section_index = race_manager->isFollowMode() ? 2 : 1;
+    int first_section_index = RaceManager::get()->isFollowMode() ? 2 : 1;
 
     // If we have five points, the first and last assigned to the first
     // and last kart, leaving 3 points 'inside' this interval, which define
@@ -437,6 +437,7 @@ void PowerupManager::loadPowerup(PowerupType type, const XMLNode &node)
 {
     std::string icon_file("");
     node.get("icon", &icon_file);
+    // icon_file = GUIEngine::getSkin()->getThemedIcon("gui/icons/" + icon_file);
 
 #ifdef DEBUG
     if (icon_file.size() == 0)
@@ -448,8 +449,10 @@ void PowerupManager::loadPowerup(PowerupType type, const XMLNode &node)
 #endif
 
     m_all_icons[type] = material_manager->getMaterial(icon_file,
-                                  /* full_path */     false,
-                                  /*make_permanent */ true);
+                                  /* full_path */     true,
+                                  /*make_permanent */ true,
+                                  /*complain_if_not_found*/ true,
+                                  /*strip_path*/ false);
 
 
     assert(m_all_icons[type] != NULL);
@@ -501,7 +504,7 @@ void PowerupManager::computeWeightsForRace(int num_karts)
     if (num_karts == 0) return;
 
     std::string class_name="";
-    switch (race_manager->getMinorMode())
+    switch (RaceManager::get()->getMinorMode())
     {
     case RaceManager::MINOR_MODE_TIME_TRIAL:       /* fall through */
     case RaceManager::MINOR_MODE_NORMAL_RACE:      class_name="race";     break;
@@ -513,7 +516,7 @@ void PowerupManager::computeWeightsForRace(int num_karts)
     case RaceManager::MINOR_MODE_SOCCER:           class_name="soccer";   break;
     default:
         Log::fatal("PowerupManager", "Invalid minor mode %d - aborting.",
-                    race_manager->getMinorMode());
+                    RaceManager::get()->getMinorMode());
     }
     class_name +="-weight-list";
 

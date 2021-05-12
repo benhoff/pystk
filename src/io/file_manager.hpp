@@ -124,7 +124,8 @@ private:
     void              checkAndCreateGPDir();
     void              discoverPaths();
     void              addAssetsSearchPath();
-#if !defined(WIN32) && !defined(__CYGWIN__) && !defined(__APPLE__)
+    void              resetSubdir();
+#if !defined(WIN32) && !defined(__APPLE__)
     std::string       checkAndCreateLinuxDir(const char *env_name,
                                              const char *dir_name,
                                              const char *fallback1,
@@ -154,6 +155,9 @@ public:
     bool isDirectory(const std::string &path) const;
     bool removeFile(const std::string &name) const;
     bool removeDirectory(const std::string &name) const;
+    // ------------------------------------------------------------------------
+    bool moveDirectoryInto(std::string source, std::string target);
+    // ------------------------------------------------------------------------
     bool copyFile(const std::string &source, const std::string &dest);
     std::vector<std::string>getMusicDirs() const;
     std::string getAssetChecked(AssetType type, const std::string& name,

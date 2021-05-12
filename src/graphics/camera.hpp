@@ -75,6 +75,7 @@ private:
 
     /** Camera's mode. */
     Mode            m_mode;
+    Mode            m_previous_mode;
 
     /** The type of the camera. */
     CameraType      m_type;
@@ -110,8 +111,6 @@ private:
 
     /** List of all cameras. */
     static std::vector<Camera*> m_all_cameras;
-
-    void setupCamera();
 
 protected:
     /** The camera scene node. */
@@ -171,6 +170,9 @@ public:
 
     void setMode(Mode mode);    /** Set the camera to the given mode */
     Mode getMode();
+    Mode getPreviousMode();
+    bool isSpectatorMode();
+    void setNextSpectatorMode();
     void setKart(AbstractKart *new_kart);
     virtual void setInitialTransform();
     virtual void activate(bool alsoActivateInIrrlicht=true);
@@ -222,6 +224,8 @@ public:
     // ------------------------------------------------------------------------
     /** Returs the absolute position of the camera. */
     Vec3 getXYZ() { return Vec3(m_camera->getPosition()); }
+    // ------------------------------------------------------------------------
+    void setupCamera();
 };   // class Camera
 
 #endif

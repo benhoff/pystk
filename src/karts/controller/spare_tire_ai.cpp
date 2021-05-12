@@ -112,10 +112,10 @@ void SpareTireAI::spawn(int ticks_to_last)
     findDefaultPath();
     m_timer = ticks_to_last;
 
-    Physics::getInstance()->addKart(m_kart);
+    Physics::get()->addKart(m_kart);
     m_kart->getKartGFX()->reset();
-    m_kart->getNode()->setVisible(true);
-
+    if (m_kart->getNode())
+        m_kart->getNode()->setVisible(true);
 }   // spawn
 
 //-----------------------------------------------------------------------------
@@ -138,11 +138,8 @@ void SpareTireAI::crashed(const AbstractKart *k)
     // Nothing happen when two spare tire karts crash each other
     if (dynamic_cast<const SpareTireAI*>(k->getController()) != NULL) return;
 
-    // Tell players that they can have at most 3 lives
     if (m_tsb_world->getKartLife(k->getWorldKartId()) == 3)
     {
-//         World::getWorld()->getRaceGUI()->addMessage
-//             (_("You can have at most 3 lives!"), k, 2.0f);
     }
     // Otherwise add one life for that kart 
     else

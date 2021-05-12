@@ -22,6 +22,7 @@
 
 #include "modes/world_with_rank.hpp"
 #include "tracks/track_object.hpp"
+#include "utils/ptr_vector.hpp"
 
 #include <IMesh.h>
 

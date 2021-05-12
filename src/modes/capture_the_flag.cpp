@@ -44,6 +44,7 @@ CaptureTheFlag::CaptureTheFlag() : FreeForAll()
     m_red_flag_indicator = m_blue_flag_indicator = NULL;
     m_red_flag_mesh = m_blue_flag_mesh = NULL;
 #ifndef SERVER_ONLY
+
     file_manager->pushTextureSearchPath(
         file_manager->getAsset(FileManager::MODEL,""), "models");
     m_red_flag_mesh = irr_driver->getAnimatedMesh
@@ -62,6 +63,7 @@ CaptureTheFlag::CaptureTheFlag() : FreeForAll()
 CaptureTheFlag::~CaptureTheFlag()
 {
 #ifndef SERVER_ONLY
+
     m_red_flag_node->drop();
     m_blue_flag_node->drop();
     irr_driver->dropAllTextures(m_red_flag_mesh);
@@ -78,7 +80,9 @@ void CaptureTheFlag::init()
     const btTransform& orig_red = Track::getCurrentTrack()->getRedFlag();
     const btTransform& orig_blue = Track::getCurrentTrack()->getBlueFlag();
 
-#ifndef SERVER_ONLY
+    m_red_flag = std::make_shared<CTFFlag>(FC_RED, orig_red);
+    m_blue_flag = std::make_shared<CTFFlag>(FC_BLUE, orig_blue);
+
     m_red_flag_node = irr_driver->addAnimatedMesh(m_red_flag_mesh, "red_flag");
     m_blue_flag_node = irr_driver->addAnimatedMesh(m_blue_flag_mesh,
         "blue_flag");
@@ -100,7 +104,6 @@ void CaptureTheFlag::init()
         core::dimension2df(1.5f, 1.5f), blue_path, NULL);
     m_blue_flag_indicator->setPosition(Vec3(
         orig_blue(Vec3(0.0f, 2.5f, 0.0f))).toIrrVector());
-#endif
 
     m_red_flag = std::make_shared<CTFFlag>(FC_RED, orig_red);
     m_blue_flag = std::make_shared<CTFFlag>(FC_BLUE, orig_blue);
@@ -125,12 +128,6 @@ void CaptureTheFlag::reset(bool restart)
     m_red_flag_status = m_blue_flag_status = CTFFlag::IN_BASE;
     m_red_flag->resetToBase();
     m_blue_flag->resetToBase();
-#ifndef SERVER_ONLY
-    if (m_red_flag_node)
-        m_red_flag->updateFlagGraphics(m_red_flag_node);
-    if (m_blue_flag_node)
-        m_blue_flag->updateFlagGraphics(m_blue_flag_node);
-#endif
 }   // reset
 
 // ----------------------------------------------------------------------------
@@ -210,7 +207,7 @@ void CaptureTheFlag::update(int ticks)
     {
         // Blue team scored
         m_last_captured_flag_ticks = World::getWorld()->getTicksSinceStart();
-        m_red_flag->resetToBase(race_manager->getFlagDeactivatedTicks());
+        m_red_flag->resetToBase(RaceManager::get()->getFlagDeactivatedTicks());
     }
     else if (m_blue_flag->getHolder() != -1 && m_red_flag->isInBase() &&
         (m_red_flag->getBaseOrigin() - m_blue_flag->getOrigin()).length() <
@@ -218,7 +215,7 @@ void CaptureTheFlag::update(int ticks)
     {
         // Red team scored
         m_last_captured_flag_ticks = World::getWorld()->getTicksSinceStart();
-        m_blue_flag->resetToBase(race_manager->getFlagDeactivatedTicks());
+        m_blue_flag->resetToBase(RaceManager::get()->getFlagDeactivatedTicks());
     }
 
     // Test if red or blue flag is touched
@@ -238,7 +235,7 @@ void CaptureTheFlag::update(int ticks)
                 {
                     // Return the flag
                     m_red_flag->resetToBase(
-                        race_manager->getFlagDeactivatedTicks());
+                        RaceManager::get()->getFlagDeactivatedTicks());
                 }
             }
             else
@@ -258,7 +255,7 @@ void CaptureTheFlag::update(int ticks)
                 {
                     // Return the flag
                     m_blue_flag->resetToBase(
-                        race_manager->getFlagDeactivatedTicks());
+                        RaceManager::get()->getFlagDeactivatedTicks());
                 }
             }
             else
@@ -359,9 +356,9 @@ bool CaptureTheFlag::isRaceOver()
     if (m_unfair_team)
         return true;
 
-    if ((m_count_down_reached_zero && race_manager->hasTimeTarget()) ||
-        (m_red_scores >= race_manager->getHitCaptureLimit() ||
-        m_blue_scores >= race_manager->getHitCaptureLimit()))
+    if ((m_count_down_reached_zero && RaceManager::get()->hasTimeTarget()) ||
+        (m_red_scores >= RaceManager::get()->getHitCaptureLimit() ||
+        m_blue_scores >= RaceManager::get()->getHitCaptureLimit()))
         return true;
 
     return false;
@@ -387,7 +384,7 @@ void CaptureTheFlag::loseFlagForKart(int kart_id)
         else
         {
             m_red_flag->resetToBase(
-                race_manager->getFlagDeactivatedTicks());
+                RaceManager::get()->getFlagDeactivatedTicks());
         }
     }
     else
@@ -397,7 +394,7 @@ void CaptureTheFlag::loseFlagForKart(int kart_id)
         else
         {
             m_blue_flag->resetToBase(
-                race_manager->getFlagDeactivatedTicks());
+                RaceManager::get()->getFlagDeactivatedTicks());
         }
     }
 }   // loseFlagForKart

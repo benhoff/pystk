@@ -36,7 +36,9 @@ class ParticleEmitter;
 class LocalPlayerController : public PlayerController
 {
 private:
-//     bool           m_has_started;
+    // StateManager::ActivePlayer *m_player;
+    bool           m_has_started;
+    bool           m_is_above_nitro_target;
 
     std::unique_ptr<ParticleEmitter> m_sky_particles_emitter;
 
@@ -44,7 +46,7 @@ private:
      *  camera object is managed in the Camera class, so no need to free it. */
     int  m_camera_index;
 
-    PerPlayerDifficulty m_difficulty;
+    HandicapLevel m_handicap;
 
     virtual void steer(int, int) OVERRIDE;
     virtual void displayPenaltyWarning() OVERRIDE;
@@ -52,7 +54,7 @@ private:
 public:
                  LocalPlayerController(AbstractKart *kart,
                                        const int local_player_id,
-                                       PerPlayerDifficulty d);
+                                       HandicapLevel h);
                 ~LocalPlayerController();
     void         update            (int ticks) OVERRIDE;
     bool         action            (PlayerAction action, int value,
@@ -73,7 +75,7 @@ public:
     virtual bool isLocalPlayerController() const OVERRIDE {return true;}
     // ------------------------------------------------------------------------
     /** Returns the name of the player profile. */
-    core::stringw getName() const OVERRIDE;
+    core::stringw getName(bool include_handicap_string = true) const OVERRIDE;
 
 };   // LocalPlayerController
 
