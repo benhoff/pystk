@@ -25,6 +25,7 @@
 #include "IGUISpriteBank.h"
 #include <mmsystem.h>
 #include <regstr.h>
+#include <tchar.h>
 #include <winuser.h>
 #if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_)
 // This define will switch to use XInput 9.1, which does not
@@ -357,6 +358,9 @@ void pollJoysticks()
     if (0 == ActiveJoysticks.size())
         return;
 
+	if (0 == ActiveJoysticks.size())
+		return;
+
     u32 joystick;
     DIJOYSTATE2 info;
 
@@ -606,11 +610,11 @@ void setJoystickName(int index, const JOYCAPS &caps, SJoystickInfo *joystick)
                       + "\\"+REGSTR_KEY_JOYCURR;
     HKEY hTopKey = HKEY_LOCAL_MACHINE;
     HKEY hKey;
-    long regresult = RegOpenKeyEx(hTopKey, key.c_str(), 0, KEY_READ, &hKey);
+    long regresult = RegOpenKeyExW(hTopKey, key.c_str(), 0, KEY_READ, &hKey);
     if (regresult != ERROR_SUCCESS)
     {
         hTopKey = HKEY_CURRENT_USER;
-        regresult = RegOpenKeyEx(hTopKey, key.c_str(), 0, KEY_READ, &hKey);
+        regresult = RegOpenKeyExW(hTopKey, key.c_str(), 0, KEY_READ, &hKey);
     }
     if (regresult != ERROR_SUCCESS) return;
 
@@ -619,14 +623,14 @@ void setJoystickName(int index, const JOYCAPS &caps, SJoystickInfo *joystick)
     DWORD regsize = sizeof(regname);
     core::stringw regvalue = core::stringw(L"Joystick")+core::stringw(index+1)
                            + REGSTR_VAL_JOYOEMNAME;
-    regresult = RegQueryValueEx(hKey, regvalue.c_str(), 0, 0,
+    regresult = RegQueryValueExW(hKey, regvalue.c_str(), 0, 0,
                                  (LPBYTE)regname, &regsize);
     RegCloseKey(hKey);
     if (regresult != ERROR_SUCCESS) return;
 
     /* open that registry key */
     core::stringw regkey = core::stringw(REGSTR_PATH_JOYOEM)+"\\"+regname;
-    regresult = RegOpenKeyEx(hTopKey, regkey.c_str(), 0, KEY_READ, &hKey);
+    regresult = RegOpenKeyExW(hTopKey, regkey.c_str(), 0, KEY_READ, &hKey);
     if (regresult != ERROR_SUCCESS) return;
 
     /* find the size for the OEM name text */
@@ -1346,8 +1350,8 @@ namespace irr
 {
 
 //! constructor
-CIrrDeviceWin32::CIrrDeviceWin32(const SIrrlichtCreationParameters& params)
-: CIrrDeviceStub(params), HWnd(0), ChangedToFullScreen(false), Resized(false),
+CIrrDeviceWin32::CIrrDeviceWin32(const SIrrlichtCreationParameters& params, bool offscreen)
+: CIrrDeviceStub(params), HWnd(0), ChangedToFullScreen(false), Resized(false), offscreen(offscreen),
     ExternalWindow(false), Win32CursorControl(0), JoyControl(0)
 {
     #ifdef _DEBUG
@@ -1374,8 +1378,6 @@ CIrrDeviceWin32::CIrrDeviceWin32(const SIrrlichtCreationParameters& params)
     // create the window if we need to and we do not use the null device
     if (!CreationParams.WindowId && CreationParams.DriverType != video::EDT_NULL)
     {
-        const wchar_t* ClassName = L"CIrrDeviceWin32";
-
         // Register Class
         WNDCLASSEX wcex;
         wcex.cbSize         = sizeof(WNDCLASSEX);
@@ -1388,7 +1390,7 @@ CIrrDeviceWin32::CIrrDeviceWin32(const SIrrlichtCreationParameters& params)
         wcex.hCursor        = 0; // LoadCursor(NULL, IDC_ARROW);
         wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
         wcex.lpszMenuName   = 0;
-        wcex.lpszClassName  = ClassName;
+        wcex.lpszClassName  = _T("CIrrDeviceWin32");
         wcex.hIconSm        = 0;
 
         // if there is an icon, load it
@@ -1440,13 +1442,15 @@ CIrrDeviceWin32::CIrrDeviceWin32(const SIrrlichtCreationParameters& params)
 
         // create window
 
-        HWnd = CreateWindow( ClassName, __TEXT(""), style, windowLeft, windowTop,
+        HWnd = CreateWindow(wcex.lpszClassName, __TEXT(""), style, windowLeft, windowTop,
                     realWidth, realHeight, NULL, NULL, hInstance, NULL);
         CreationParams.WindowId = HWnd;
 //      CreationParams.WindowSize.Width = realWidth;
 //      CreationParams.WindowSize.Height = realHeight;
-
-        ShowWindow(HWnd, SW_SHOWNORMAL);
+		if (offscreen)
+			ShowWindow(HWnd, SW_HIDE);
+		else
+			ShowWindow(HWnd, SW_SHOWNORMAL);
         UpdateWindow(HWnd);
 
         // fix ugly ATI driver bugs. Thanks to ariaci
@@ -1752,9 +1756,8 @@ void CIrrDeviceWin32::closeDevice()
     if (!ExternalWindow)
     {
         DestroyWindow(HWnd);
-        const wchar_t* ClassName = L"CIrrDeviceWin32";
         HINSTANCE hInstance = GetModuleHandle(0);
-        UnregisterClass(ClassName, hInstance);
+        UnregisterClass(_T("CIrrDeviceWin32"), hInstance);
     }
     Close=true;
 }
@@ -2161,6 +2164,9 @@ void CIrrDeviceWin32::setResizable(bool resize)
 
     SetWindowPos(HWnd, HWND_TOP, windowLeft, windowTop, realWidth, realHeight,
         SWP_FRAMECHANGED | SWP_NOMOVE | SWP_SHOWWINDOW);
+
+	if (offscreen)
+		ShowWindow(HWnd, SW_HIDE);
 
     static_cast<CCursorControl*>(CursorControl)->updateBorderSize(CreationParams.Fullscreen, resize);
 }

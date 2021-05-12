@@ -126,6 +126,23 @@ namespace video
 	}
 #endif
 
+#ifdef _IRR_COMPILE_WITH_OFF_SCREEN_DEVICE_
+	COGLES2Driver::COGLES2Driver(const SIrrlichtCreationParameters& params, 
+				  io::IFileSystem* io, CIrrDeviceOffScreen* device)
+		: CNullDriver(io, params.WindowSize), COGLES2ExtensionHandler(),
+		BridgeCalls(0), CurrentRenderMode(ERM_NONE), ResetRenderStates(true),
+		Transformation3DChanged(true), AntiAlias(params.AntiAlias),
+		RenderTargetTexture(0), CurrentRendertargetSize(0, 0), 
+		ColorFormat(ECF_R8G8B8), EglContext(0), EglContextExternal(false), 
+		Params(params)
+	{
+		EglContext = device->getEGLContext();
+		EglContextExternal = true;
+		genericDriverInit(params.WindowSize, params.Stencilbuffer);
+	}
+#endif
+				  
+
 	//! destructor
 	COGLES2Driver::~COGLES2Driver()
 	{
@@ -2903,6 +2920,22 @@ namespace video
 #endif
 
 // -----------------------------------
+// OFFSCREEN VERSION
+// -----------------------------------
+#ifdef _IRR_COMPILE_WITH_OFF_SCREEN_DEVICE_
+	IVideoDriver* createOGLES2Driver(const SIrrlichtCreationParameters& params, 
+			io::IFileSystem* io, CIrrDeviceOffScreen* device)
+	{
+#ifdef _IRR_COMPILE_WITH_OGLES2_
+		return new COGLES2Driver(params, io, device);
+#else
+		return 0;
+#endif // _IRR_COMPILE_WITH_OGLES2_
+	}
+		
+#endif
+
+// -----------------------------------
 // MACOSX VERSION
 // -----------------------------------
 #if defined(_IRR_COMPILE_WITH_OSX_DEVICE_)
@@ -2917,21 +2950,7 @@ namespace video
 	}
 #endif // _IRR_COMPILE_WITH_OSX_DEVICE_
 
-// -----------------------------------
-// SDL VERSION
-// -----------------------------------
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
-	IVideoDriver* createOGLES2Driver(const SIrrlichtCreationParameters& params,
-			io::IFileSystem* io, CIrrDeviceSDL* device, u32 default_fb)
-	{
-#ifdef _IRR_COMPILE_WITH_OGLES2_
-		return new COGLES2Driver(params, io, device, default_fb);
-#else
-		return 0;
-#endif // _IRR_COMPILE_WITH_OGLES2_
-	}
 
-#endif
 
 } // end namespace
 } // end namespace

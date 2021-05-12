@@ -35,7 +35,6 @@
 #include <limits>
 #include <string>
 
-class SFXBase;
 class ParticleEmitter;
 class PhysicalObject;
 class ThreeDAnimation;
@@ -268,45 +267,6 @@ public:
     /** Returns the mode file name. */
     const std::string& getModelFile() const { return m_model_file; }
 };   // class TrackObjectPresentationMesh
-
-// ============================================================================
-/** \ingroup tracks
- *  A track object representation that consists of a sound emitter
- */
-class TrackObjectPresentationSound : public TrackObjectPresentation
-{
-private:
-
-    /** If a sound is attached to this object and/or this is a sound emitter
-     *  object */
-    SFXBase* m_sound;
-
-    /** Currently used for sound effects only, in cutscenes only atm */
-    std::string  m_trigger_condition;
-
-    core::vector3df m_xyz;
-
-    bool m_enabled;
-
-public:
-
-    TrackObjectPresentationSound(const XMLNode& xml_node,
-                                 scene::ISceneNode* parent,
-                                 bool disable_for_multiplayer);
-    virtual ~TrackObjectPresentationSound();
-    void onTriggerItemApproached(int kart_id);
-    virtual void updateGraphics(float dt) OVERRIDE;
-    virtual void move(const core::vector3df& xyz, const core::vector3df& hpr,
-        const core::vector3df& scale, bool isAbsoluteCoord) OVERRIDE;
-    void triggerSound(bool loop);
-    void stopSound();
-
-    virtual void setEnable(bool enabled) OVERRIDE;
-
-    // ------------------------------------------------------------------------
-    /** Currently used for sound effects only, in cutscenes only atm */
-    const std::string& getTriggerCondition() const { return m_trigger_condition; }
-};   // TrackObjectPresentationSound
 
 // ============================================================================
 /** \ingroup tracks

@@ -22,7 +22,7 @@
 
 #include "modes/world_with_rank.hpp"
 #include "tracks/track_object.hpp"
-#include "states_screens/race_gui_base.hpp"
+#include "utils/ptr_vector.hpp"
 
 #include <IMesh.h>
 
@@ -117,9 +117,6 @@ public:
     // ------------------------------------------------------------------------
     // overriding World methods
     virtual void reset(bool restart=false) OVERRIDE;
-    // ------------------------------------------------------------------------
-    virtual void getKartsDisplayInfo(
-                 std::vector<RaceGUIBase::KartIconDisplayInfo> *info) OVERRIDE;
     // ------------------------------------------------------------------------
     virtual bool raceHasLaps() OVERRIDE                       { return false; }
     // ------------------------------------------------------------------------

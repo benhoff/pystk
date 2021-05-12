@@ -20,7 +20,6 @@
 #define SOCCER_WORLD_HPP
 
 #include "modes/world_with_rank.hpp"
-#include "states_screens/race_gui_base.hpp"
 #include "karts/abstract_kart.hpp"
 
 #include <IMesh.h>
@@ -90,7 +89,6 @@ private:
     int m_goal_target;
     bool m_count_down_reached_zero;
 
-    SFXBase *m_goal_sound;
 
     /** Counts ticks when the ball is off track, so a reset can be
      *  triggered if the ball is off for more than 2 seconds. */
@@ -145,8 +143,6 @@ public:
     virtual btTransform getRescueTransform(unsigned int rescue_pos) const
         OVERRIDE;
     virtual bool useFastMusicNearEnd() const OVERRIDE { return false; }
-    virtual void getKartsDisplayInfo(
-               std::vector<RaceGUIBase::KartIconDisplayInfo> *info) OVERRIDE;
 
     virtual bool raceHasLaps() OVERRIDE { return false; }
 
@@ -156,7 +152,6 @@ public:
 
     virtual void update(int ticks) OVERRIDE;
 
-    bool shouldDrawTimer() const OVERRIDE { return !isStartPhase(); }
     // ------------------------------------------------------------------------
     void onCheckGoalTriggered(bool first_goal);
     // ------------------------------------------------------------------------
@@ -178,6 +173,9 @@ public:
     // ------------------------------------------------------------------------
     const Vec3& getBallPosition() const
         { return (Vec3&)m_ball_body->getCenterOfMassTransform().getOrigin(); }
+    // ------------------------------------------------------------------------
+    void setBallPosition(const Vec3 & p, const Vec3 & v = Vec3(0, 0, 0),
+                         const Vec3 & a = Vec3(0, 0, 0));
     // ------------------------------------------------------------------------
     bool ballNotMoving() const
     {
@@ -236,15 +234,11 @@ public:
         return progress;
     }
     // ------------------------------------------------------------------------
-    virtual void saveCompleteState(BareNetworkString* bns,
-                                   STKPeer* peer) OVERRIDE;
-    // ------------------------------------------------------------------------
-    virtual void restoreCompleteState(const BareNetworkString& b) OVERRIDE;
     // ------------------------------------------------------------------------
     virtual bool isGoalPhase() const OVERRIDE
     {
         int diff = m_ticks_back_to_own_goal - getTicksSinceStart();
-        return diff > 0 && diff < stk_config->time2Ticks(3.0f);
+        return diff > 0;
     }
     // ------------------------------------------------------------------------
     AbstractKart* getKartAtDrawingPosition(unsigned int p) const OVERRIDE
@@ -255,3 +249,4 @@ public:
 
 
 #endif
+

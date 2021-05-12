@@ -24,7 +24,6 @@
 #include "graphics/lod_node.hpp"
 #include "graphics/material_manager.hpp"
 #include "io/xml_node.hpp"
-#include "network/network_config.hpp"
 #include "physics/physical_object.hpp"
 #include "tracks/track_object.hpp"
 #include "utils/log.hpp"
@@ -90,15 +89,6 @@ void TrackObjectManager::init()
         }
 
         // onWorldReady will hide some track objects using scripting
-        if (NetworkConfig::get()->isNetworking() &&
-            curr->isEnabled() && curr->getPhysicalObject() &&
-            curr->getPhysicalObject()->isDynamic())
-        {
-            curr->getPhysicalObject()->getBody()
-                ->setActivationState(DISABLE_DEACTIVATION);
-            curr->getPhysicalObject()->addForRewind();
-            moveable_objects++;
-        }
     }
 }   // init
 
@@ -194,16 +184,6 @@ void TrackObjectManager::update(float dt)
         curr->update(dt);
     }
 }   // update
-
-// ----------------------------------------------------------------------------
-void TrackObjectManager::resetAfterRewind()
-{
-    TrackObject* curr;
-    for_in (curr, m_all_objects)
-    {
-        curr->resetAfterRewind();
-    }
-}   // resetAfterRewind
 
 // ----------------------------------------------------------------------------
 /** Does a raycast against all driveable objects. This way part of the track

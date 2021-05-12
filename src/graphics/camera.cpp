@@ -19,10 +19,7 @@
 
 #include "graphics/camera.hpp"
 
-#include "audio/sfx_manager.hpp"
 #include "config/stk_config.hpp"
-#include "config/user_config.hpp"
-#include "graphics/camera_debug.hpp"
 #include "graphics/camera_end.hpp"
 #include "graphics/camera_fps.hpp"
 #include "graphics/camera_normal.hpp"
@@ -80,7 +77,6 @@ Camera* Camera::createCamera(unsigned int index, CameraType type,
     {
     case CM_TYPE_NORMAL: camera = new CameraNormal(CM_TYPE_NORMAL, index, kart);
                                                                  break;
-    case CM_TYPE_DEBUG:  camera = new CameraDebug (index, kart); break;
     case CM_TYPE_FPS:    camera = new CameraFPS   (index, kart); break;
     case CM_TYPE_END:    camera = new CameraEnd   (index, kart); break;
     }   // switch type
@@ -174,15 +170,7 @@ void Camera::setupCamera()
         float(irr_driver->getActualScreenSize().Width) / m_viewport.getWidth() , 
         float(irr_driver->getActualScreenSize().Height) / m_viewport.getHeight());
 
-    if (RaceManager::get()->getNumLocalPlayers() > 1)
-    {
-        m_fov = DEGREE_TO_RAD * stk_config->m_camera_fov
-          [RaceManager::get()->getNumLocalPlayers() - 1];
-    }
-    else
-    {
-        m_fov = DEGREE_TO_RAD * UserConfigParams::m_camera_fov;
-    }
+    m_fov = DEGREE_TO_RAD * stk_config->m_camera_fov;
 
     m_camera->setFOV(m_fov);
     m_camera->setAspectRatio(m_aspect);
@@ -202,8 +190,8 @@ void Camera::setMode(Mode mode)
         (m_mode==CM_FALLING && mode==CM_NORMAL)    )
     {
         Vec3 start_offset(0, 1.6f, -3);
-        Vec3 current_position = m_kart->getSmoothedTrans()(start_offset);
-        Vec3 target_position = m_kart->getSmoothedTrans()(Vec3(0, 0, 1));
+        Vec3 current_position = m_kart->getTrans()(start_offset);
+        Vec3 target_position = m_kart->getTrans()(Vec3(0, 0, 1));
         // Don't set position and target the same, otherwise
         // nan values will be calculated in ViewArea of camera
         m_camera->setPosition(current_position.toIrrVector());
@@ -233,20 +221,6 @@ Camera::Mode Camera::getPreviousMode()
 // ----------------------------------------------------------------------------
 /** Returns true if camera is a spectator camera
  */
-bool Camera::isSpectatorMode()
-{
-    return ((m_mode == CM_SPECTATOR_TOP_VIEW) || (m_mode == CM_SPECTATOR_SOCCER));
-}   // isSpectatorMode
-
-// ----------------------------------------------------------------------------
-/** Switch to next spectator mode  (a -> soccer -> top view -> a)
- */
-void Camera::setNextSpectatorMode()
-{
-    if (m_mode == CM_SPECTATOR_SOCCER) m_mode = CM_SPECTATOR_TOP_VIEW;
-    else if (m_mode == CM_SPECTATOR_TOP_VIEW) m_mode = m_previous_mode;
-    else setMode(CM_SPECTATOR_SOCCER);
-}   // setNextSpectatorMode
 
 //-----------------------------------------------------------------------------
 /** Reset is called when a new race starts. Make sure that the camera
@@ -269,7 +243,7 @@ void Camera::setInitialTransform()
 {
     if (m_kart == NULL) return;
     Vec3 start_offset(0, 1.6f, -3);
-    Vec3 current_position = m_kart->getSmoothedTrans()(start_offset);
+    Vec3 current_position = m_kart->getTrans()(start_offset);
     assert(!std::isnan(current_position.getX()));
     assert(!std::isnan(current_position.getY()));
     assert(!std::isnan(current_position.getZ()));
@@ -279,7 +253,7 @@ void Camera::setInitialTransform()
     // direction till smoothMoveCamera has corrected this. Setting target
     // to position doesn't make sense, but smoothMoves will adjust the
     // value before the first frame is rendered
-    Vec3 target_position = m_kart->getSmoothedTrans()(Vec3(0, 0, 1));
+    Vec3 target_position = m_kart->getTrans()(Vec3(0, 0, 1));
     m_camera->setTarget(target_position.toIrrVector());
     m_camera->setRotation(core::vector3df(0, 0, 0));
     m_camera->setFOV(m_fov);
@@ -291,26 +265,6 @@ void Camera::setInitialTransform()
  */
 void Camera::update(float dt)
 {
-    if (!m_kart)
-    {
-        if (RaceManager::get()->getNumLocalPlayers() < 2)
-        {
-            Vec3 pos(m_camera->getPosition());
-            SFXManager::get()->positionListener(pos,
-                Vec3(m_camera->getTarget()) - pos,
-                Vec3(0, 1, 0));
-        }
-
-        return; // cameras not attached to kart must be positioned manually
-    }
-
-    if (RaceManager::get()->getNumLocalPlayers() < 2)
-    {
-        Vec3 heading(sinf(m_kart->getHeading()), 0.0f, cosf(m_kart->getHeading()));
-        SFXManager::get()->positionListener(m_kart->getSmoothedXYZ(),
-                                            heading,
-                                            Vec3(0, 1, 0));
-    }
 }   // update
 
 // ----------------------------------------------------------------------------

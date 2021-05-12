@@ -18,16 +18,14 @@
 
 #include "karts/explosion_animation.hpp"
 
-#include "audio/sfx_manager.hpp"
 #include "graphics/camera.hpp"
 #include "graphics/stars.hpp"
-#include "guiengine/engine.hpp"
 #include "items/attachment.hpp"
 #include "karts/abstract_kart.hpp"
 #include "karts/kart_properties.hpp"
 #include "modes/follow_the_leader.hpp"
-#include "network/network_string.hpp"
-#include "network/protocols/client_lobby.hpp"
+
+#include "modes/world.hpp"
 #include "race/race_manager.hpp"
 #include "tracks/track.hpp"
 #include "utils/mini_glm.hpp"
@@ -116,41 +114,11 @@ ExplosionAnimation::ExplosionAnimation(AbstractKart* kart, bool direct_hit)
 
     float t = m_kart->getKartProperties()->getExplosionInvulnerabilityTime();
     m_kart->setInvulnerableTicks(stk_config->time2Ticks(t));
-    m_kart->playCustomSFX(SFXManager::CUSTOM_EXPLODE);
     m_kart->getAttachment()->clear();
     // Clear powerups when direct hit in CTF
     if (reset)
         resetPowerUp();
 }   // ExplosionAnimation
-
-//-----------------------------------------------------------------------------
-ExplosionAnimation::ExplosionAnimation(AbstractKart* kart, BareNetworkString* b)
-                  : AbstractKartAnimation(kart, "ExplosionAnimation")
-{
-    restoreBasicState(b);
-    restoreData(b);
-}   // RescueAnimation
-
-//-----------------------------------------------------------------------------
-void ExplosionAnimation::restoreData(BareNetworkString* b)
-{
-    bool direct_hit = b->getUInt8() == 1;
-    Vec3 normal = m_created_transform.getBasis().getColumn(1).normalized();
-    btTransform reset_transform =
-        btTransform(btQuaternion(0.0f, 0.0f, 0.0f, 1.0f));
-
-    if (RaceManager::get()->getMinorMode() ==
-        RaceManager::MINOR_MODE_CAPTURE_THE_FLAG && direct_hit)
-    {
-        m_reset_trans_compressed[0] = b->getInt24();
-        m_reset_trans_compressed[1] = b->getInt24();
-        m_reset_trans_compressed[2] = b->getInt24();
-        m_reset_trans_compressed[3] = b->getUInt32();
-        reset_transform =
-            MiniGLM::decompressbtTransform(m_reset_trans_compressed);
-    }
-    init(direct_hit, normal, reset_transform);
-}   // restoreData
 
 //-----------------------------------------------------------------------------
 ExplosionAnimation::~ExplosionAnimation()
@@ -163,9 +131,6 @@ ExplosionAnimation::~ExplosionAnimation()
     {
         m_kart->getBody()->setLinearVelocity(btVector3(0,0,0));
         m_kart->getBody()->setAngularVelocity(btVector3(0,0,0));
-        // Don't reset spectate camera
-        auto cl = LobbyProtocol::get<ClientLobby>();
-        if (!GUIEngine::isNoGraphics() && (!cl || !cl->isSpectator()))
         {
             for (unsigned i = 0; i < Camera::getNumCameras(); i++)
             {
@@ -307,24 +272,3 @@ bool ExplosionAnimation::hasResetAlready() const
         World::getWorld()->getTicksSinceStart() > m_reset_ticks;
 }   // update
 
-// ----------------------------------------------------------------------------
-void ExplosionAnimation::saveState(BareNetworkString* buffer)
-{
-    AbstractKartAnimation::saveState(buffer);
-    buffer->addUInt8(m_direct_hit ? 1 : 0);
-    if (RaceManager::get()->getMinorMode() ==
-        RaceManager::MINOR_MODE_CAPTURE_THE_FLAG && m_direct_hit)
-    {
-        buffer->addInt24(m_reset_trans_compressed[0])
-            .addInt24(m_reset_trans_compressed[1])
-            .addInt24(m_reset_trans_compressed[2])
-            .addUInt32(m_reset_trans_compressed[3]);
-    }
-}   // saveState
-
-// ----------------------------------------------------------------------------
-void ExplosionAnimation::restoreState(BareNetworkString* buffer)
-{
-    AbstractKartAnimation::restoreState(buffer);
-    restoreData(buffer);
-}   // restoreState

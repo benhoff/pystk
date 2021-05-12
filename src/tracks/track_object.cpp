@@ -19,6 +19,7 @@
 #include "tracks/track_object.hpp"
 
 #include "animations/three_d_animation.hpp"
+#include "config/stk_config.hpp"
 #include "graphics/central_settings.hpp"
 #include "graphics/irr_driver.hpp"
 #include "graphics/lod_node.hpp"
@@ -29,15 +30,15 @@
 #include "graphics/sp/sp_mesh_node.hpp"
 #include "io/file_manager.hpp"
 #include "io/xml_node.hpp"
-#include "input/device_manager.hpp"
+#include "input/input.hpp"
 #include "items/item_manager.hpp"
-#include "network/network_config.hpp"
 #include "physics/physical_object.hpp"
 #include "race/race_manager.hpp"
 #include "scriptengine/script_engine.hpp"
 #include "tracks/track.hpp"
 #include "tracks/model_definition_loader.hpp"
 #include "utils/string_utils.hpp"
+#include "utils/objecttype.h"
 
 #include <IAnimatedMeshSceneNode.h>
 #include <ISceneManager.h>
@@ -55,6 +56,7 @@ TrackObject::TrackObject(const XMLNode &xml_node, scene::ISceneNode* parent,
                          ModelDefinitionLoader& model_def_loader,
                          TrackObject* parent_library)
 {
+    m_render_info     = std::make_shared<RenderInfo>(0.f, false, newObjectId(OT_BACKGROUND));
     init(xml_node, parent, model_def_loader, parent_library);
 }   // TrackObject
 
@@ -83,6 +85,7 @@ TrackObject::TrackObject(const core::vector3df& xyz, const core::vector3df& hpr,
     m_soccer_ball     = false;
     m_initially_visible = false;
     m_type            = "";
+    m_render_info     = std::make_shared<RenderInfo>(0.f, false, newObjectId(OT_PICKUP));
 
     if (m_interaction != "ghost" && m_interaction != "none" &&
         physics_settings )
@@ -132,6 +135,9 @@ void TrackObject::init(const XMLNode &xml_node, scene::ISceneNode* parent,
 
     m_soccer_ball = false;
     xml_node.get("soccer_ball", &m_soccer_ball);
+    if (m_soccer_ball && m_render_info) {
+        m_render_info->setObjectId(newObjectId(OT_PROJECTILE));
+    }
     
     std::string type;
     xml_node.get("type",    &type );
@@ -165,15 +171,6 @@ void TrackObject::init(const XMLNode &xml_node, scene::ISceneNode* parent,
         {
             Track::getCurrentTrack()->addMetaLibrary(parent_library, this);
         }
-    }
-    else if (type == "sfx-emitter")
-    {
-        // FIXME: at this time sound emitters are just disabled in multiplayer
-        //        otherwise the sounds would be constantly heard, for networking
-        //        the index of item needs to be same so we create and disable it
-        //        in TrackObjectPresentationSound constructor
-        m_presentation = new TrackObjectPresentationSound(xml_node, parent,
-            RaceManager::get()->getNumLocalPlayers() > 1);
     }
     else if (type == "action-trigger")
     {
@@ -261,7 +258,8 @@ void TrackObject::init(const XMLNode &xml_node, scene::ISceneNode* parent,
                 const float hue = colorized->getRandomHue();
                 if (hue > 0.0f)
                 {
-                    m_render_info = std::make_shared<RenderInfo>(hue);
+                    if (m_render_info) m_render_info->setHue(hue);
+                    else m_render_info = std::make_shared<RenderInfo>(hue, true, newObjectId(OT_BACKGROUND));
                 }
             }
         }
@@ -555,21 +553,6 @@ void TrackObject::update(float dt)
     if (m_animator) m_animator->updateWithWorldTicks(true/*has_physics*/);
 }   // update
 
-
-// ----------------------------------------------------------------------------
-/** This reset all physical object moved by 3d animation back to current ticks
- */
-void TrackObject::resetAfterRewind()
-{
-    if (!m_animator || !m_physical_object)
-        return;
-    m_animator->updateWithWorldTicks(true/*has_physics*/);
-    btTransform new_trans;
-    m_physical_object->getMotionState()->getWorldTransform(new_trans);
-    m_physical_object->getBody()->setCenterOfMassTransform(new_trans);
-    m_physical_object->getBody()->saveKinematicState(stk_config->ticks2Time(1));
-}   // resetAfterRewind
-
 // ----------------------------------------------------------------------------
 /** Does a raycast against the track object. The object must have a physical
  *  object.
@@ -763,13 +746,6 @@ bool TrackObject::joinToMainTrack()
         m_physical_object->isFlattenKartObject())
         return false;
 
-    // Scripting exploding barrel is assumed to be joinable in networking
-    // as it doesn't support it
-    if (!NetworkConfig::get()->isNetworking() &&
-        (!m_physical_object->getOnKartCollisionFunction().empty() ||
-        !m_physical_object->getOnItemCollisionFunction().empty()))
-        return false;
-
     // Skip driveable non-exact shape object
     // Notice driveable object should always has exact shape specified in
     // blender
@@ -782,6 +758,9 @@ bool TrackObject::joinToMainTrack()
     return true;
 }   // joinToMainTrack
 
+uint32_t TrackObject::objectID() const {
+    return m_render_info? m_render_info->objectId() : 0;
+}
 // ----------------------------------------------------------------------------
 TrackObject* TrackObject::cloneToChild()
 {

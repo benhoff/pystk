@@ -18,13 +18,12 @@
 #ifndef HEADER_LINEAR_WORLD_HPP
 #define HEADER_LINEAR_WORLD_HPP
 
+#include "config/stk_config.hpp"
 #include "modes/world_with_rank.hpp"
 #include "utils/aligned_array.hpp"
 
 #include <climits>
 #include <vector>
-
-class SFXBase;
 
 /*
  * A 'linear world' is a subcategory of world used in 'standard' races, i.e.
@@ -35,17 +34,6 @@ class SFXBase;
 class LinearWorld : public WorldWithRank
 {
 private:
-    /** Sfx for the final lap. */
-    SFXBase     *m_last_lap_sfx;
-
-    /** Last lap sfx should only be played once. */
-    bool         m_last_lap_sfx_played;
-
-    bool         m_last_lap_sfx_playing;
-
-    /** True if clients and server has the same check structure. */
-    bool         m_check_structure_compatible;
-
     /** The fastest lap time, in ticks of physics dt. */
     int          m_fastest_lap_ticks;
 
@@ -60,22 +48,8 @@ private:
      *  get valid finish times estimates. */
     float       m_distance_increase;
 
-    /** This stores the live time difference between a ghost kart
-     *  and a second kart racing against it (normal or ghost). 
-     */
-    float       m_live_time_difference;
-
-    /** True if the live_time_difference is invalid */
-    bool        m_valid_reference_time;
-
     /* if set then the game will auto end after this time for networking */
     float       m_finish_timeout;
-
-    /** This calculate the time difference between the second kart in the race
-     *  (there must be at least two) and the first kart in the race
-     *  (who must be a ghost).
-     */
-    void  updateLiveDifference();
 
     // ------------------------------------------------------------------------
     /** Some additional info that needs to be kept for each kart
@@ -117,10 +91,6 @@ private:
             m_overall_distance  = 0.0f;
             m_wrong_way_timer   = 0.0f;
         }   // reset
-        // --------------------------------------------------------------------
-        void saveCompleteState(BareNetworkString* bns);
-        // --------------------------------------------------------------------
-        void restoreCompleteState(const BareNetworkString& b);
     };
     // ------------------------------------------------------------------------
 
@@ -153,11 +123,6 @@ public:
     float         getEstimatedFinishTime(const int kart_id) const;
     int           getLapForKart(const int kart_id) const;
     int           getTicksAtLapForKart(const int kart_id) const;
-    float         getLiveTimeDifference() const { return m_live_time_difference; }
-    bool          hasValidTimeDifference() const { return m_valid_reference_time; }
-
-    virtual  void getKartsDisplayInfo(
-                  std::vector<RaceGUIBase::KartIconDisplayInfo> *info) OVERRIDE;
 
     virtual unsigned int getNumberOfRescuePositions() const OVERRIDE;
     virtual unsigned int getRescuePositionIndex(AbstractKart *kart) OVERRIDE;
@@ -200,7 +165,7 @@ public:
     }
     // ------------------------------------------------------------------------
     /** Returns the kart name that made the fastest lap time */
-    stringw getFastestLapKartName() const
+    core::stringw getFastestLapKartName() const
     {
         return m_fastest_lap_kart_name;
     }
@@ -218,22 +183,13 @@ public:
     }
     // ------------------------------------------------------------------------
     /** Network use: set fastest kart name */
-    void setFastestKartName(const stringw& name)
+    void setFastestKartName(const core::stringw& name)
     {
         m_fastest_lap_kart_name = name;
     }
     // ------------------------------------------------------------------------
     virtual std::pair<uint32_t, uint32_t> getGameStartedProgress() const
         OVERRIDE;
-    // ------------------------------------------------------------------------
-    virtual void saveCompleteState(BareNetworkString* bns,
-                                   STKPeer* peer) OVERRIDE;
-    // ------------------------------------------------------------------------
-    virtual void restoreCompleteState(const BareNetworkString& b) OVERRIDE;
-    // ------------------------------------------------------------------------
-    void updateCheckLinesServer(int check_id, int kart_id);
-    // ------------------------------------------------------------------------
-    void updateCheckLinesClient(const BareNetworkString& b);
     // ------------------------------------------------------------------------
     void handleServerCheckStructureCount(unsigned count);
 };   // LinearWorld

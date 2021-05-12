@@ -24,7 +24,7 @@
 
 #include "items/powerup_manager.hpp"
 #include "karts/moveable.hpp"
-#include "network/rewinder.hpp"
+
 #include "tracks/terrain_info.hpp"
 #include "utils/cpp2011.hpp"
 
@@ -40,12 +40,12 @@ class AbstractKartAnimation;
 class HitEffect;
 class PhysicalObject;
 class XMLNode;
+class RenderInfo;
 
 /**
   * \ingroup items
   */
-class Flyable : public Moveable, public TerrainInfo,
-                public Rewinder
+class Flyable : public Moveable, public TerrainInfo
 {
 private:
     bool              m_has_hit_something;
@@ -74,6 +74,8 @@ private:
     /** If the flyable is in a cannon, this is the pointer to the cannon
      *  animation. NULL otherwise. */
     AbstractKartAnimation *m_animation;
+    
+    std::shared_ptr<RenderInfo> ri_;
 
 protected:
     /** Kart which shot this flyable. */
@@ -245,26 +247,6 @@ public:
     /** Returns the size (extend) of the mesh. */
     const Vec3 &getExtend() const { return m_extend;  }
     // ------------------------------------------------------------------------
-    void addForRewind(const std::string& uid);
-    // ------------------------------------------------------------------------
-    virtual void undoEvent(BareNetworkString *buffer) OVERRIDE {}
-    // ------------------------------------------------------------------------
-    virtual void rewindToEvent(BareNetworkString *buffer) OVERRIDE {}
-    // ------------------------------------------------------------------------
-    virtual void undoState(BareNetworkString *buffer) OVERRIDE {}
-    // ------------------------------------------------------------------------
-    virtual void saveTransform() OVERRIDE;
-    // ------------------------------------------------------------------------
-    virtual void computeError() OVERRIDE;
-    // ------------------------------------------------------------------------
-    virtual BareNetworkString* saveState(std::vector<std::string>* ru)
-        OVERRIDE;
-    // ------------------------------------------------------------------------
-    virtual void restoreState(BareNetworkString *buffer, int count) OVERRIDE;
-    // ------------------------------------------------------------------------
-    /* Return true if still in game state, or otherwise can be deleted. */
-    bool hasServerState() const                  { return m_has_server_state; }
-    // ------------------------------------------------------------------------
     /** Call when the item is (re-)fired (during rewind if needed) by
      *  projectile_manager. */
     virtual void onFireFlyable();
@@ -272,6 +254,9 @@ public:
     virtual void onDeleteFlyable();
     // ------------------------------------------------------------------------
     void setCreatedTicks(int ticks)                { m_created_ticks = ticks; }
+    
+    void setObjectId(uint32_t id);
+	uint32_t getObjectId() const;
 };   // Flyable
 
 #endif

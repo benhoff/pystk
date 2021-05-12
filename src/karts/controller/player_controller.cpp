@@ -19,8 +19,7 @@
 
 #include "karts/controller/player_controller.hpp"
 
-#include "config/user_config.hpp"
-#include "input/input_manager.hpp"
+#include "input/input.hpp"
 #include "items/attachment.hpp"
 #include "items/item.hpp"
 #include "items/powerup.hpp"
@@ -29,17 +28,9 @@
 #include "karts/skidding.hpp"
 #include "karts/rescue_animation.hpp"
 #include "modes/world.hpp"
-#include "network/game_setup.hpp"
-#include "network/rewind_manager.hpp"
-#include "network/network_config.hpp"
-#include "network/network_player_profile.hpp"
-#include "network/network_string.hpp"
-#include "race/history.hpp"
-#include "states_screens/race_gui_base.hpp"
 #include "utils/constants.hpp"
 #include "utils/log.hpp"
 #include "utils/string_utils.hpp"
-#include "utils/translation.hpp"
 
 #include <cstdlib>
 
@@ -241,9 +232,6 @@ bool PlayerController::action(PlayerAction action, int value, bool dry_run)
             }
         }
         break;
-    case PA_PAUSE_RACE:
-        if (value != 0) StateManager::get()->escapePressed();
-        break;
     default:
        break;
     }
@@ -328,25 +316,6 @@ void PlayerController::update(int ticks)
 {
     steer(ticks, m_steer_val);
 
-    if (World::getWorld()->isStartPhase())
-    {
-        if ((m_controls->getAccel() || m_controls->getBrake()||
-            m_controls->getNitro()) && !NetworkConfig::get()->isNetworking())
-        {
-            // Only give penalty time in READY_PHASE.
-            // Penalty time check makes sure it doesn't get rendered on every
-            // update.
-            if (m_penalty_ticks == 0 &&
-                World::getWorld()->getPhase() == WorldStatus::READY_PHASE)
-            {
-                displayPenaltyWarning();
-            }   // if penalty_time = 0
-            m_controls->setBrake(false);
-        }   // if key pressed
-
-        return;
-    }   // if isStartPhase
-
     if (m_penalty_ticks != 0 &&
         World::getWorld()->getTicksSinceStart() < m_penalty_ticks)
     {
@@ -368,52 +337,15 @@ void PlayerController::update(int ticks)
 //-----------------------------------------------------------------------------
 /** Called when a kart hits or uses a zipper.
  */
-void PlayerController::handleZipper(bool play_sound)
+void PlayerController::handleZipper()
 {
     m_kart->showZipperFire();
 }   // handleZipper
-
-//-----------------------------------------------------------------------------
-bool PlayerController::saveState(BareNetworkString *buffer) const
-{
-    // NOTE: when the size changes, the AIBaseController::saveState and
-    // restore state MUST be adjusted!!
-    int steer_abs = std::abs(m_steer_val);
-    buffer->addUInt16((uint16_t)steer_abs).addUInt16(m_prev_accel)
-        .addUInt8((m_prev_brake ? 1 : 0) | (m_prev_nitro ? 2 : 0));
-    return m_steer_val < 0;
-}   // copyToBuffer
-
-//-----------------------------------------------------------------------------
-void PlayerController::rewindTo(BareNetworkString *buffer)
-{
-    // NOTE: when the size changes, the AIBaseController::saveState and
-    // restore state MUST be adjusted!!
-    m_steer_val  = buffer->getUInt16();
-    m_prev_accel = buffer->getUInt16();
-    uint8_t c = buffer->getUInt8();
-    m_prev_brake = (c & 1) != 0;
-    m_prev_nitro = (c & 2) != 0;
-}   // rewindTo
 
 // ----------------------------------------------------------------------------
 core::stringw PlayerController::getName(bool include_handicap_string) const
 {
     core::stringw name = m_kart->getName();
-    if (NetworkConfig::get()->isNetworking())
-    {
-        const RemoteKartInfo& rki = RaceManager::get()->getKartInfo(
-            m_kart->getWorldKartId());
-        name = rki.getPlayerName();
-        if (include_handicap_string && rki.getHandicap() == HANDICAP_MEDIUM)
-        {
-#ifdef SERVER_ONLY
-            name += L" (handicapped)";
-#else
-            name = _("%s (handicapped)", name);
-#endif
-        }
-    }
     return name;
 }   // getName
 

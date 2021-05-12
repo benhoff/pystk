@@ -20,13 +20,13 @@
 #define HEADER_PLAYER_CONTROLLER_HPP
 
 #include "karts/controller/controller.hpp"
+#include "utils/cpp2011.hpp"
 
 class AbstractKart;
 class Player;
 
 class PlayerController : public Controller
 {
-friend class KartRewinder;
 protected:
     int            m_steer_val, m_steer_val_l, m_steer_val_r;
     uint16_t       m_prev_accel;
@@ -47,10 +47,8 @@ public:
                                    int value_l, int value_r);
     virtual void skidBonusTriggered() OVERRIDE;
     virtual void reset             () OVERRIDE;
-    virtual void handleZipper(bool play_sound) OVERRIDE;
+    virtual void handleZipper() OVERRIDE;
     virtual void resetInputState();
-    virtual bool saveState(BareNetworkString *buffer) const OVERRIDE;
-    virtual void rewindTo(BareNetworkString *buffer) OVERRIDE;
     // ------------------------------------------------------------------------
     virtual void  collectedItem(const ItemState &item,
                                 float previous_energy=0 ) OVERRIDE { };

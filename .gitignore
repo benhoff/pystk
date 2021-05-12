@@ -6,6 +6,9 @@ dependencies*/
 CMakeFiles/
 stk-editor/
 .vscode/
+PySuperTuxKart.egg-info/*
+venv/*
+compile_commands.json
 tags.*
 
 .config/
@@ -70,6 +73,19 @@ android-*
 *.apk
 *.keystore
 
+.DS_Store
+supertuxkart/
+/.vs
+pystk/*.pyd
+/stk-assets
+/CMakeSettings.json
+dbuild
+**/_build
+dist
+Pipfile
+**.so
+**.idea
+pystk.egg-info
 lib/curl
 lib/freetype
 lib/ifaddrs
@@ -84,4 +100,3 @@ lib/fribidi
 lib/harfbuzz
 lib/sdl2
 
-.DS_Store

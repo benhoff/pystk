@@ -20,7 +20,6 @@
 
 #include "animations/animation_base.hpp"
 #include "animations/ipo.hpp"
-#include "config/user_config.hpp"
 #include "graphics/show_curve.hpp"
 #include "graphics/material_manager.hpp"
 #include "graphics/sp/sp_dynamic_draw_call.hpp"
@@ -55,40 +54,6 @@ CheckCannon::CheckCannon(const XMLNode &node,  unsigned int index)
     m_curve = new Ipo(*(node.getNode("curve")),
                       /*fps*/25,
                       /*reverse*/RaceManager::get()->getReverseTrack());
-
-#if defined(DEBUG) && !defined(SERVER_ONLY)
-    m_show_curve = NULL;
-    if(UserConfigParams::m_track_debug)
-    {
-        m_show_curve = new ShowCurve(0.5f, 0.5f);
-        const std::vector<Vec3> &p = m_curve->getPoints();
-        for(unsigned int i=0; i<p.size(); i++)
-            m_show_curve->addPoint(p[i]);
-    }
-    if (UserConfigParams::m_check_debug && !GUIEngine::isNoGraphics())
-    {
-        m_debug_target_dy_dc = std::make_shared<SP::SPDynamicDrawCall>
-            (scene::EPT_TRIANGLE_STRIP,
-            SP::SPShaderManager::get()->getSPShader("additive"),
-            material_manager->getDefaultSPMaterial("additive"));
-        SP::addDynamicDrawCall(m_debug_target_dy_dc);
-        m_debug_target_dy_dc->getVerticesVector().resize(4);
-        auto& vertices = m_debug_target_dy_dc->getVerticesVector();
-        Vec3 height(0, 3, 0);
-        vertices[0].m_position = m_target_left.toIrrVector();
-        vertices[1].m_position = m_target_right.toIrrVector();
-        vertices[2].m_position = Vec3(m_target_left  + height).toIrrVector();
-        vertices[3].m_position = Vec3(m_target_right + height).toIrrVector();
-        for (unsigned int i = 0; i < 4; i++)
-        {
-            vertices[i].m_color = m_active_at_reset
-                ? video::SColor(128, 255, 0, 0)
-                : video::SColor(128, 128, 128, 128);
-        }
-        m_debug_target_dy_dc->recalculateBoundingBox();
-    }
-#endif   // DEBUG AND !SERVER_ONLY
-
 }   // CheckCannon
 
 // ----------------------------------------------------------------------------
@@ -98,11 +63,6 @@ CheckCannon::CheckCannon(const XMLNode &node,  unsigned int index)
 CheckCannon::~CheckCannon()
 {
     delete m_curve;
-#if defined(DEBUG) && !defined(SERVER_ONLY)
-    delete m_show_curve;
-    if (m_debug_target_dy_dc)
-        m_debug_target_dy_dc->removeFromSP();
-#endif
 }   // ~CheckCannon
 
 // ----------------------------------------------------------------------------
@@ -137,7 +97,7 @@ void CheckCannon::update(float dt)
     for (unsigned int i = 0; i < world->getNumKarts(); i++)
     {
         AbstractKart* kart = world->getKart(i);
-        if (kart->getKartAnimation() || kart->isGhostKart() ||
+        if (kart->getKartAnimation() ||
             kart->isEliminated() || !m_is_active[i])
             continue;
 
@@ -155,7 +115,7 @@ void CheckCannon::update(float dt)
 
     for (Flyable* flyable : m_all_flyables)
     {
-        if (!flyable->hasServerState() || flyable->hasAnimation())
+        if (flyable->hasAnimation())
             continue;
 
         const Vec3 current_position = flyable->getXYZ();

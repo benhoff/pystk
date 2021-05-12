@@ -18,19 +18,14 @@
 
 #include "items/rubber_ball.hpp"
 
-#include "audio/sfx_base.hpp"
-#include "audio/sfx_manager.hpp"
 #include "config/stk_config.hpp"
-#include "config/user_config.hpp"
 #include "io/xml_node.hpp"
 #include "items/attachment.hpp"
 #include "items/projectile_manager.hpp"
 #include "karts/abstract_kart.hpp"
 #include "karts/kart_properties.hpp"
 #include "modes/linear_world.hpp"
-#include "network/network_string.hpp"
-#include "network/rewind_info.hpp"
-#include "network/rewind_manager.hpp"
+
 #include "physics/btKart.hpp"
 #include "physics/triangle_mesh.hpp"
 #include "tracks/check_manager.hpp"
@@ -70,7 +65,6 @@ RubberBall::RubberBall(AbstractKart *kart)
     m_id = next_id[STKProcess::getType()]++;
 
     m_target = NULL;
-    m_ping_sfx = SFXManager::get()->createSoundSource("ball_bounce");
 }   // RubberBall
 
 // ----------------------------------------------------------------------------
@@ -127,7 +121,6 @@ void RubberBall::onFireFlyable()
  */
 RubberBall::~RubberBall()
 {
-    removePingSFX();
     Track::getCurrentTrack()->getCheckManager()->removeFlyableFromCannons(this);
 }   // ~RubberBall
 
@@ -377,7 +370,6 @@ bool RubberBall::updateAndDelete(int ticks)
 #ifdef PRINT_BALL_REMOVE_INFO
             Log::debug("[RubberBall]", "ball %d deleted.", m_id);
 #endif
-            removePingSFX();
             return true;
         }
     }
@@ -388,15 +380,12 @@ bool RubberBall::updateAndDelete(int ticks)
         // update the ball's position.
         m_previous_xyz = getXYZ();
         bool can_be_deleted = Flyable::updateAndDelete(ticks);
-        if (can_be_deleted)
-            removePingSFX();
         return can_be_deleted;
     }
 
     bool can_be_deleted = Flyable::updateAndDelete(ticks);
     if (can_be_deleted)
     {
-        removePingSFX();
         return true;
     }
 
@@ -438,12 +427,6 @@ bool RubberBall::updateAndDelete(int ticks)
 
     m_height_timer += stk_config->ticks2Time(ticks);
     float height    = updateHeight()+m_extend.getY()*0.5f;
-    
-    if(UserConfigParams::logFlyable())
-        Log::debug("[RubberBall]", "ball %d: %f %f %f height %f gethot %f terrain %d aim %d",
-                m_id, next_xyz.getX(), next_xyz.getY(), next_xyz.getZ(), height, getHoT(),
-			    isOnRoad(),
-            m_aiming_at_target);
 
     // No need to check for terrain height if the ball is low to the ground
     if(height > 0.5f)
@@ -461,11 +444,6 @@ bool RubberBall::updateAndDelete(int ticks)
         else
             m_max_height = m_st_max_height[m_type];
     }
-
-    if(UserConfigParams::logFlyable())
-        Log::verbose("RubberBall", "newy2 %f gmth %f", height,
-                     getTunnelHeight(next_xyz,vertical_offset));
-
     // Ball squashing:
     // ===============
     float scale = 1.0f;
@@ -473,8 +451,7 @@ bool RubberBall::updateAndDelete(int ticks)
         scale = height / m_extend.getY();
 
 #ifndef SERVER_ONLY
-    if (m_node && !RewindManager::get()->isRewinding())
-        m_node->setScale(core::vector3df(1.0f, scale, 1.0f));
+    m_node->setScale(core::vector3df(1.0f, scale, 1.0f));
 #endif
 
     next_xyz = getHitPoint() + getNormal() * (height * scale);
@@ -484,7 +461,6 @@ bool RubberBall::updateAndDelete(int ticks)
 
     if (checkTunneling())
     {
-        removePingSFX();
         return true;
     }
 
@@ -691,12 +667,6 @@ float RubberBall::updateHeight()
     if(m_height_timer>m_interval)
     {
         m_height_timer -= m_interval;
-        if (m_ping_sfx && m_ping_sfx->getStatus()!=SFXBase::SFX_PLAYING &&
-            !RewindManager::get()->isRewinding())
-        {
-            m_ping_sfx->setPosition(getXYZ());
-            m_ping_sfx->play();
-        }
 
         if(m_fast_ping)
         {
@@ -776,12 +746,6 @@ void RubberBall::updateDistanceToTarget()
     {
         m_distance_to_target += Track::getCurrentTrack()->getTrackLength();
     }
-    if(UserConfigParams::logFlyable())
-        Log::debug("[RubberBall]", "ball %d: target %f %f %f distance_2_target %f",
-        m_id, m_target->getXYZ().getX(),m_target->getXYZ().getY(),
-        m_target->getXYZ().getZ(),m_distance_to_target
-        );
-
     float height_diff = fabsf((m_target->getXYZ() - getXYZ()).dot(getNormal().normalized()));
 
     if(m_distance_to_target < m_st_fast_ping_distance &&
@@ -873,68 +837,3 @@ bool RubberBall::hit(AbstractKart* kart, PhysicalObject* object)
     }
     return was_real_hit;
 }   // hit
-
-// ----------------------------------------------------------------------------
-BareNetworkString* RubberBall::saveState(std::vector<std::string>* ru)
-{
-    BareNetworkString* buffer = Flyable::saveState(ru);
-    if (!buffer)
-        return NULL;
-
-    buffer->addUInt16((int16_t)m_last_aimed_graph_node);
-    buffer->add(m_control_points[0]);
-    buffer->add(m_control_points[1]);
-    buffer->add(m_control_points[2]);
-    buffer->add(m_control_points[3]);
-    buffer->add(m_previous_xyz);
-    buffer->addFloat(m_previous_height);
-    buffer->addFloat(m_length_cp_1_2);
-    buffer->addFloat(m_length_cp_2_3);
-    buffer->addFloat(m_t);
-    buffer->addFloat(m_t_increase);
-    buffer->addFloat(m_interval);
-    buffer->addFloat(m_height_timer);
-    buffer->addUInt16(m_delete_ticks);
-    buffer->addFloat(m_current_max_height);
-    buffer->addUInt8(m_tunnel_count | (m_aiming_at_target ? (1 << 7) : 0));
-    TrackSector::saveState(buffer);
-    return buffer;
-}   // saveState
-
-// ----------------------------------------------------------------------------
-void RubberBall::restoreState(BareNetworkString *buffer, int count)
-{
-    Flyable::restoreState(buffer, count);
-    m_restoring_state = true;
-    int16_t last_aimed_graph_node = buffer->getUInt16();
-    m_last_aimed_graph_node = last_aimed_graph_node;
-    m_control_points[0] = buffer->getVec3();
-    m_control_points[1] = buffer->getVec3();
-    m_control_points[2] = buffer->getVec3();
-    m_control_points[3] = buffer->getVec3();
-    m_previous_xyz = buffer->getVec3();
-    m_previous_height = buffer->getFloat();
-    m_length_cp_1_2 = buffer->getFloat();
-    m_length_cp_2_3 = buffer->getFloat();
-    m_t = buffer->getFloat();
-    m_t_increase = buffer->getFloat();
-    m_interval = buffer->getFloat();
-    m_height_timer = buffer->getFloat();
-    m_delete_ticks = buffer->getUInt16();
-    m_current_max_height = buffer->getFloat();
-    uint8_t tunnel_and_aiming = buffer->getUInt8();
-    m_tunnel_count = tunnel_and_aiming & 127;
-    m_aiming_at_target = ((tunnel_and_aiming >> 7) & 1) == 1;
-    TrackSector::rewindTo(buffer);
-}   // restoreState
-
-// ----------------------------------------------------------------------------
-void RubberBall::removePingSFX()
-{
-    if (!m_ping_sfx)
-        return;
-    if (m_ping_sfx->getStatus() == SFXBase::SFX_PLAYING)
-        m_ping_sfx->stop();
-    m_ping_sfx->deleteSFX();
-    m_ping_sfx = NULL;
-}   // removePingSFX

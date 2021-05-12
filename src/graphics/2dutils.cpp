@@ -438,18 +438,6 @@ void draw2DImageCustomAlpha(const irr::video::ITexture* texture,
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    if (clipRect)
-    {
-        if (!clipRect->isValid())
-            return;
-
-        glEnable(GL_SCISSOR_TEST);
-        const core::dimension2d<u32>& render_target_size =
-                            irr_driver->getActualScreenSize();
-        glScissor(clipRect->UpperLeftCorner.X,
-                  (s32)render_target_size.Height - clipRect->LowerRightCorner.Y,
-                  clipRect->getWidth(), clipRect->getHeight());
-    }
 
     TextureRectCustomAlphaShader::getInstance()->use();
     glBindVertexArray(SharedGPUObjects::getUI_VAO());
@@ -467,6 +455,62 @@ void draw2DImageCustomAlpha(const irr::video::ITexture* texture,
 
     if (clipRect)
         glDisable(GL_SCISSOR_TEST);
+    glUseProgram(0);
+
+    glGetError();
+}   // draw2DImage
+
+// ----------------------------------------------------------------------------
+void draw2DImage(const video::ITexture* texture,
+                 const core::rect<s32>& destRect,
+                 const core::rect<s32>& sourceRect,
+                 const core::rect<s32>* clip_rect,
+                 const video::SColor* const colors,
+                 bool use_alpha_channel_of_texture,
+                 bool draw_translucently)
+{
+    if (!CVS->isGLSL())
+        return;
+
+    float width, height, center_pos_x, center_pos_y, tex_width, tex_height;
+    float tex_center_pos_x, tex_center_pos_y;
+    float rotation = 0.0f;
+    float custom_alpha = 1.0f;
+
+    getSize(texture->getSize().Width, texture->getSize().Height,
+            texture->isRenderTarget(), destRect, sourceRect, width, height,
+            center_pos_x, center_pos_y, tex_width, tex_height,
+            tex_center_pos_x, tex_center_pos_y);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    if (colors)
+    {
+        drawTexColoredQuad(texture, colors, width, height, center_pos_x,
+                           center_pos_y, tex_center_pos_x, tex_center_pos_y,
+                           tex_width, tex_height, rotation);
+    }
+    else
+    {
+        drawTexQuad(texture->getOpenGLTextureName(), width, height,
+                    center_pos_x, center_pos_y, tex_center_pos_x,
+                    tex_center_pos_y, tex_width, tex_height, rotation);
+    }
+
+    TextureRectCustomAlphaShader::getInstance()->use();
+    glBindVertexArray(SharedGPUObjects::getUI_VAO());
+
+    TextureRectCustomAlphaShader::getInstance()->setTextureUnits(texture->getOpenGLTextureName());
+    TextureRectCustomAlphaShader::getInstance()->setUniforms(
+                    core::vector2df(center_pos_x, center_pos_y),
+                    core::vector2df(width, height),
+                    core::vector2df(tex_center_pos_x, tex_center_pos_y),
+                    core::vector2df(tex_width, tex_height), rotation, custom_alpha);
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
     glUseProgram(0);
 
     glGetError();

@@ -36,6 +36,7 @@ class RTT;
 class Skybox;
 class SphericalHarmonics;
 class PostProcessing;
+class TrackRenderer;
 
 class ShaderBasedRenderer: public AbstractRenderer
 {
@@ -47,6 +48,7 @@ private:
     DrawCalls                   m_draw_calls;
     LightingPasses              m_lighting_passes;
     ShadowMatrices              m_shadow_matrices;
+	TrackRenderer              *m_track_renderer;
     std::unique_ptr<PostProcessing> m_post_processing;
 
     void prepareForwardRenderer();
@@ -66,6 +68,8 @@ private:
     void renderSSAO() const;
 
     void renderGlow() const;
+
+    void renderTrackLabel(GLuint tex) const;
 
     void renderScene(irr::scene::ICameraSceneNode * const camnode,
                      float dt, bool hasShadows, bool forceRTT);
@@ -99,7 +103,7 @@ public:
 
     void addSunLight(const irr::core::vector3df &pos) OVERRIDE;
 
-    void render(float dt, bool is_loading=false) OVERRIDE;
+    void minimalRender(float dt);
 
     std::unique_ptr<RenderTarget> createRenderTarget(const irr::core::dimension2du &dimension,
                                                      const std::string &name) OVERRIDE;

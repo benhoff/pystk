@@ -44,7 +44,6 @@
 #include "karts/rescue_animation.hpp"
 #include "modes/linear_world.hpp"
 #include "race/race_manager.hpp"
-#include "states_screens/race_result_gui.hpp"
 #include "tracks/drive_graph.hpp"
 #include "tracks/drive_node.hpp"
 #include "tracks/track.hpp"
@@ -164,11 +163,6 @@ void  EndController::newLap(int lap)
  */
 bool EndController::action(PlayerAction action, int value, bool dry_run)
 {
-    if(action!=PA_FIRE) return true;
-    RaceResultGUI *race_result_gui =
-        dynamic_cast<RaceResultGUI*>(World::getWorld()->getRaceGUI());
-    if(!race_result_gui) return true;
-    race_result_gui->nextPhase();
     return true;
 }   // action
 
@@ -240,8 +234,7 @@ void EndController::handleSteering(float dt)
 void EndController::handleRescue(const float DELTA)
 {
     // check if kart is stuck
-    if(m_kart->getSpeed()<2.0f && !m_kart->getKartAnimation() &&
-        !m_world->isStartPhase())
+    if(m_kart->getSpeed()<2.0f && !m_kart->getKartAnimation())
     {
         m_time_since_stuck += DELTA;
         if(m_time_since_stuck > 2.0f)

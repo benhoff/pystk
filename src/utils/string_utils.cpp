@@ -24,7 +24,6 @@
 #include "utils/constants.hpp"
 #include "utils/log.hpp"
 #include "utils/time.hpp"
-#include "utils/translation.hpp"
 #include "utils/types.hpp"
 #include "utils/utf8.h"
 #include "irrArray.h"
@@ -43,18 +42,6 @@ extern std::string g_android_main_user_agent;
 
 namespace StringUtils
 {
-    bool hasSuffix(const std::string& lhs, const std::string &rhs)
-    {
-        if (lhs.length() < rhs.length())
-            return false;
-        else
-            // While this is basically correct, it fails with older
-            // g++ versions (at least 2.95.3), which have a wrong template. To
-            // avoid this issue, a more C-traditional way is used.
-            return strcmp(lhs.c_str()+(lhs.length()-rhs.length()),
-                          rhs.c_str()                             )==0;
-    }   // hasSuffix
-
     bool startsWith(const std::string& str, const std::string& prefix)
     {
         if (str.length() < prefix.length())
@@ -124,16 +111,6 @@ namespace StringUtils
     }   // getExtension
 
     //-------------------------------------------------------------------------
-    /** Returns a string converted to upper case.
-     */
-    std::string toUpperCase(const std::string& str)
-    {
-        std::string name = str;
-        std::transform(name.begin(), name.end(), name.begin(), ::toupper);
-        return name;
-    }   // toUpperCase
-
-    //-------------------------------------------------------------------------
     /** Returns a string converted to lower case.
      */
     std::string toLowerCase(const std::string& str)
@@ -196,10 +173,9 @@ namespace StringUtils
             {
                 Log::error("StringUtils", "Split : %s", result[n].c_str());
             }
-
-            assert(false); // in debug mode, trigger debugger
-            exit(1);
+            Log::fatal("StringUtils", "");
         }
+        return result;
     }   // split
 
     //-------------------------------------------------------------------------
@@ -257,10 +233,9 @@ namespace StringUtils
                 Log::error("StringUtils", "Split : %s",
                            wideToUtf8(utf32ToWide(result[n])).c_str());
             }
-
-            assert(false); // in debug mode, trigger debugger
-            exit(1);
+            Log::fatal("StringUtils", "");
         }
+        return result;
     }   // split
 
     //-------------------------------------------------------------------------
@@ -312,8 +287,8 @@ namespace StringUtils
             Log::fatal("StringUtils",
                        "Fatal error in split(stringw) : %s @ line %i : '%s'.",
                        __FILE__, __LINE__, e.what());
-            exit(1);
         }
+        return std::vector<irr::core::stringw>();
     }   // split
 
 
@@ -380,8 +355,8 @@ namespace StringUtils
             Log::fatal("StringUtils",
                 "Fatal error in splitPath : %s @ line %i: '%s'.",
                         __FILE__, __LINE__, path.c_str());
-            exit(1);
         }
+        return std::vector<std::string>();
     }   // splitPath
 
     // ------------------------------------------------------------------------
@@ -451,8 +426,8 @@ namespace StringUtils
             Log::fatal("StringUtils",
                        "Fatal error in insertValues(std::string) : %s @ "
                        "line %i: '%s'", __FILE__, __LINE__, s.c_str());
-            exit(1);
         }
+        return "";
     }
 
     // ------------------------------------------------------------------------
@@ -538,8 +513,8 @@ namespace StringUtils
             Log::fatal("StringUtils",
                        "Fatal error in insertValues(stringw) : %s @ line %i.",
                        __FILE__, __LINE__);
-            exit(1);
         }
+        return "";
     }
 
     // ------------------------------------------------------------------------
@@ -945,11 +920,7 @@ namespace StringUtils
         }
         return false;
     }   // checkForStringNumber
-    // ------------------------------------------------------------------------
-    /** Converts a version string (in the form of 'X.Y.Za-rcU' into an
-     *  integer number.
-     *  \param s The version string to convert.
-     */
+
     int versionToInt(const std::string &version_string)
     {
         // Special case: GIT
@@ -1019,218 +990,6 @@ namespace StringUtils
         return version;
     }   // versionToInt
 
-    // ------------------------------------------------------------------------
-    /** Searches for text in a string and replaces it with the desired text */
-    std::string findAndReplace(const std::string& source, const std::string& find, const std::string& replace)
-    {
-        std::string destination = source;
-        std::string::size_type found_position = 0;
-
-        // Replace until we can't find anymore the find string
-        while ((found_position = destination.find(find, found_position)) != std::string::npos)
-        {
-            destination.replace(found_position, find.length(), replace);
-            // Advanced pass the replaced string
-            found_position += replace.length();
-        }
-        return destination;
-    } //findAndReplace
-
-    // ------------------------------------------------------------------------
-    std::string removeWhitespaces(const std::string& input)
-    {
-        std::string out;
-
-        for (char ch : input)
-        {
-            if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r')
-                continue;
-
-            out += ch;
-        }
-
-        return out;
-    }
-
-    // ------------------------------------------------------------------------
-    std::string getHostNameFromURL(const std::string& url)
-    {
-        // Not even a valid URL
-        if (url.length() < 8)
-            return "";
-
-        // protocol is substr(0, first_color_position)
-        const size_t first_colon_position = url.find_first_of(":");
-        if (first_colon_position == std::string::npos)
-            return "";
-
-        // skip ://
-        const std::string url_without_protocol = url.substr(first_colon_position + 3);
-
-        // Find end with port
-        const size_t port_colon_position = url_without_protocol.find_first_of(":");
-        if (port_colon_position != std::string::npos)
-            return url_without_protocol.substr(0, port_colon_position);
-
-        // Find end with path
-        const size_t slash_position = url_without_protocol.find_first_of("/");
-        if (slash_position != std::string::npos)
-            return url_without_protocol.substr(0, slash_position);
-
-        return url_without_protocol;
-    }
-
-    // ------------------------------------------------------------------------
-    /** Breaks the text so that each line is smaller than max_width with the current settings.
-      * The result is put into output, a vector of strings, with each line having its own string */
-    // TODO : try to get rid of the complications induced by wchar
-    void breakText(const std::wstring& input, std::vector<std::wstring> &output,
-                   unsigned int max_width, irr::gui::IGUIFont* font, bool right_to_left)
-    {
-        output.clear();
-
-        // We need to use a wstring to get wchar_t later
-        std::wstring work_copy = input;
-
-        // For right to left, we reverse the order of the wchars.
-        // Then, we apply the same operation at the end on the line strings.
-        // As we don't break on multi-wchar symbols,
-        // the second reverse step will put them back in the correct order.
-        if (right_to_left)
-            std::reverse(work_copy.begin(), work_copy.end());
-
-        wchar_t c;
-        unsigned int index       = 0;
-        // The index of the last character to include before the linebreak
-        unsigned int break_index = 0;
-        irr::core::dimension2du area;
-        // Algorithm :
-        // 1)If the index exceed the work_copy string size, go to step 7a)
-        //   unless it is 0, in which case there is nothing to copy at all and it exits immediately.
-        // 2)We look at the character at the index
-        // 3)We check if the current character is a linebreak. If yes, go to step 7a)
-        // 4)We check if it is part of a multi-wchar unicode character.
-        //   If we are in a multi-wchar unicode character, go to step 6.
-        //   We don't check if it's the first or second one, because those characters
-        //   are not a suitable break-point anyway. In theory, this doesn't work well
-        //   if only such characters are used, but this is a silly theoretical case.
-        // 5a)We check if the length of the string including the new character is < max_width
-        // 5b)If it is smaller, and a suitable character to break, we update the break_index
-        // 5c)If it is bigger, we go to step 7
-        // 6)If no linebreak has been requested, increment the index, and return to step 1)
-        // 7a)If a linebreak has been requested, we push back the substring from 0 to break_index,
-        //     and truncate that substring from work_copy. The index is reset to 0.
-        //     If break_index is 0, we cut the string at the current index.
-        // 7b)If we have broken the whole input text into lines, we quit the loop.
-        while(true)
-        {
-            // We have reached the end of the string, we just need to push back the current content
-            // Step 1
-            if (index >= work_copy.size())
-            {
-                if (index==0)
-                    break;
-
-                break_index = index-1;
-                goto push_text; // Avoid complicating things with checks on every single step
-            }
-
-            // Step 2
-            c = work_copy[index];
-
-            // Step 3
-            if (c == L'\r' || c == L'\n')
-            {
-                if (index == 0)
-                {
-                    work_copy.erase(0);
-                    continue;
-                }
-
-                break_index = index;
-                if (c == L'\r' && index+1 < work_copy.size() && work_copy[index+1] == L'\n') // Windows breaks
-                    work_copy.erase(index+1);
-                goto push_text;
-            }
-
-            // Step 4
-            if (partOfLongUnicodeChar(c))
-                goto next_loop_no_push;
-
-            // Step 5
-
-            // index+1 because index starts at 0 and substr takes initial pos and length as arguments
-            area = font->getDimension(work_copy.substr(0,index+1).c_str());
-            if (area.Width < max_width)
-            {
-                if (breakable(c))
-                    break_index = index;
-            }
-            else
-            {
-                // Not enough room to draw even 1 character, abort
-                if (index==0)
-                {
-                    Log::error("StringUtils",
-                           "Not enough width to fit a character. Width is %i.", max_width);
-                    break;
-                }
-
-                goto push_text;
-            }
-
-            // Step 6
-            next_loop_no_push:
-            index++;
-            continue;
-
-            // Step 7
-            push_text:
-            
-            // Calculate break index depending on max text length if there is no
-            // breakable character
-            if (break_index == 0)
-            {
-                for (unsigned int i = 0; i < work_copy.size(); i++)
-                {
-                    std::wstring text = work_copy.substr(0, i+1);
-                    unsigned int width = font->getDimension(text.c_str()).Width;
-                    
-                    if (width > max_width)
-                        break;
-                    
-                    break_index++;
-                }
-                
-                break_index = std::max(0, (int)break_index - 1);
-            }
-            
-            // To include the char at break_index, we need a length of break_index+1
-            std::wstring text_line = work_copy.substr(0,break_index+1);
-            output.push_back(text_line);
-
-            // If the line break was the last char of the input string
-            if (work_copy.size() == break_index+1)
-            {
-                // The text is entirely treated
-                break;
-            }
-            else
-            {
-                work_copy = work_copy.substr(break_index+1); // All the string except the pushed back part
-                index = 0;
-                break_index = 0;
-            }
-        } // While(true) - active until the whole string has been broken and copied
-        if (right_to_left)
-        {
-            for (unsigned int i=0;i<output.size();i++)
-            {
-                std::reverse(output[i].begin(), output[i].end());
-            }
-        }
-    } // breakText
-
     /* This function checks if a char is suitable to break lines.
      * Based on the function found at irrlicht/include/utfwrapping.h */
     bool breakable (wchar_t c)
@@ -1243,18 +1002,6 @@ namespace StringUtils
 	    	return true;
 	    return false;
     } // breakable
-
-    /* This function checks if a char is part of a two wchars unicode symbol */
-    bool partOfLongUnicodeChar (wchar_t c)
-    {
-#ifdef WIN32
-	    if (c >= 0x10000)
-	    	return true;
-	    return false;
-#else
-        return false; //A wchar_t in Linux or Mac uses 32 bits
-#endif
-    } // partOfLongUnicodeChar
 
     // ------------------------------------------------------------------------
     irr::core::stringw utf32ToWide(const std::u32string& input)
@@ -1285,42 +1032,6 @@ namespace StringUtils
     }   // utf32ToWide
 
     // ------------------------------------------------------------------------
-    std::u32string utf8ToUtf32(const std::string &input)
-    {
-        std::u32string result;
-        try
-        {
-            utf8::utf8to32(input.c_str(), input.c_str() + input.size(),
-                back_inserter(result));
-        }
-        catch (std::exception& e)
-        {
-            Log::error("StringUtils",
-                "utf8ToUtf32 error: %s, input string: %s", e.what(),
-                input.c_str());
-        }
-        return result;
-    }   // utf8ToUtf32
-
-    // ------------------------------------------------------------------------
-    std::string utf32ToUtf8(const std::u32string& input)
-    {
-        std::string result;
-        try
-        {
-            utf8::utf32to8(input.c_str(), input.c_str() + input.size(),
-                back_inserter(result));
-        }
-        catch (std::exception& e)
-        {
-            Log::error("StringUtils",
-                "utf32ToUtf8 error: %s, incompleted string: %s", e.what(),
-                result.c_str());
-        }
-        return result;
-    }   // utf32ToUtf8
-
-    // ------------------------------------------------------------------------
     std::u32string wideToUtf32(const irr::core::stringw& input)
     {
         std::u32string utf32_line;
@@ -1341,89 +1052,6 @@ namespace StringUtils
         }
         return utf32_line;
     }   // wideToUtf32
-
-    // ------------------------------------------------------------------------
-    /** At the moment only versionToInt is tested. 
-     */
-    void unitTesting()
-    {
-        assert(versionToInt("git"             ) == 999999999);
-        assert(versionToInt("12.34.56-alpha1" ) == 123456001);   // alphaX  = 0X
-        assert(versionToInt("12.34.56-beta2"  ) == 123456012);   // betaX   = 1X
-        assert(versionToInt("12.34.56-rc3"    ) == 123456023);   // rcX     = 2X
-        assert(versionToInt("12.34.56"        ) == 123456099);   // release = 99
-        assert(versionToInt("12.34.56a-alpha4") == 123456104);
-        assert(versionToInt("12.34.56b-beta5" ) == 123456215);
-        assert(versionToInt("12.34.56c-rc6"   ) == 123456326);
-        assert(versionToInt("12.34.56d"       ) == 123456499);
-        assert(versionToInt("1-alpha7"        ) ==  10000007);
-        assert(versionToInt("1-beta8"         ) ==  10000018);
-        assert(versionToInt("1-rc9"           ) ==  10000029);
-        assert(versionToInt("1.0-rc1"         ) ==  10000021);   // same as 1-rc1
-    }   // unitTesting
-    // ------------------------------------------------------------------------
-    std::pair<std::string, std::string> extractVersionOS(
-                                                 const std::string& user_agent)
-    {
-        std::pair<std::string, std::string> ret;
-        // '#^(SuperTuxKart/[a-z0-9\\.\\-_]+)( \\(.*\\))?$#'
-        std::vector<std::string> out = split(user_agent, '/');
-        if (out.size() != 2 || out[1].empty() || out[1].back() != ')')
-            return ret;
-        std::vector<std::string> out2 = split(out[1], '(');
-        if (out2.size() != 2 || out2[0].empty() || out2[0].back() != ' ' ||
-            out2[1].size() < 2)
-            return ret;
-        ret.first = out2[0].substr(0, out2[0].size() - 1);
-        ret.second = out2[1].substr(0, out2[1].size() - 1);
-        return ret;
-    }   // extractVersionOS
-    // ------------------------------------------------------------------------
-    std::string getUserAgentString()
-    {
-        std::string uagent(std::string("SuperTuxKart/") + STK_VERSION);
-#if defined(IOS_STK)
-        uagent += (std::string)" (iOS)";
-#elif defined(WIN32)
-        uagent += (std::string)" (Windows)";
-#elif defined(__APPLE__)
-        uagent += (std::string)" (Macintosh)";
-#elif defined(__FreeBSD__)
-        uagent += (std::string)" (FreeBSD)";
-#elif defined(__HAIKU__)
-        uagent += (std::string)" (Haiku)";
-#elif defined(ANDROID)
-        uagent += g_android_main_user_agent;
-#elif defined(linux)
-        uagent += (std::string)" (Linux)";
-#else
-        // Unknown system type
-#endif
-        return uagent;
-    }   // getUserAgentString
-    // ------------------------------------------------------------------------
-    irr::core::stringw getReadableFileSize(uint64_t n)
-    {
-        irr::core::stringw unit="";
-        if(n>1024*1024)
-        {
-            float f = ((int)(n/1024.0f/1024.0f*10.0f+0.5f))/10.0f;
-            char s[32];
-            sprintf(s, "%.1f", f);
-            unit = _("%s MB", s);
-        }
-        else if(n>1024)
-        {
-            float f = ((int)(n/1024.0f*10.0f+0.5f))/10.0f;
-            char s[32];
-            sprintf(s, "%.1f", f);
-            unit = _("%s KB", s);
-        }
-        else
-            // Anything smaller just let it be 1 KB
-            unit = _("%s KB", 1);
-        return unit;
-    }   // getReadableFileSize
 } // namespace StringUtils
 
 /* EOF */

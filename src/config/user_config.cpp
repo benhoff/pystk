@@ -31,9 +31,7 @@ static std::vector<UserConfigParam*> all_params;
 #define PARAM_DEFAULT(X) = X
 #include "config/user_config.hpp"
 
-#include "config/saved_grand_prix.hpp"
 #include "config/stk_config.hpp"
-#include "guiengine/engine.hpp"
 #include "io/file_manager.hpp"
 #include "io/utf_writer.hpp"
 #include "io/xml_node.hpp"
@@ -41,7 +39,6 @@ static std::vector<UserConfigParam*> all_params;
 #include "utils/file_utils.hpp"
 #include "utils/log.hpp"
 #include "utils/string_utils.hpp"
-#include "utils/translation.hpp"
 
 #include <algorithm>
 #include <fstream>
@@ -51,7 +48,6 @@ static std::vector<UserConfigParam*> all_params;
 #include <vector>
 
 const int UserConfig::m_current_config_version = 8;
-
 
 // ----------------------------------------------------------------------------
 UserConfigParam::~UserConfigParam()
@@ -641,140 +637,7 @@ core::stringc FloatUserConfigParam::toString() const
 }   // toString
 
 // =====================================================================================
+
+
+
 // =====================================================================================
-
-#if 0
-#pragma mark -
-#pragma mark UserConfig
-#endif
-
-UserConfig *user_config;
-
-UserConfig::UserConfig()
-{
-    m_filename = "config.xml";
-    m_warning  = "";
-    //m_blacklist_res.clear();
-
-}   // UserConfig
-
-// -----------------------------------------------------------------------------
-UserConfig::~UserConfig()
-{
-    UserConfigParams::m_saved_grand_prix_list.clearAndDeleteAll();
-}   // ~UserConfig
-
-// -----------------------------------------------------------------------------
-/** Load configuration values from file. */
-bool UserConfig::loadConfig()
-{
-    const std::string filename = file_manager->getUserConfigFile(m_filename);
-    XMLNode* root = file_manager->createXMLTree(filename);
-    if(!root || root->getName() != "stkconfig")
-    {
-        Log::info("UserConfig",
-                   "Could not read user config file '%s'.  A new file will be created.", filename.c_str());
-        if(root) delete root;
-        // Create a default config file - just in case that stk crashes later
-        // there is a config file that can be modified (to e.g. disable
-        // shaders)
-        saveConfig();
-        return false;
-    }
-
-    // ---- Read config file version
-    int config_file_version = m_current_config_version;
-    if(root->get("version", &config_file_version) < 1)
-    {
-        GUIEngine::showMessage( _("Your config file was malformed, so it was deleted and a new one will be created."), 10.0f);
-        Log::error("UserConfig",
-                   "Warning, malformed user config file! Contains no version");
-    }
-    if (config_file_version < m_current_config_version)
-    {
-        // current version (8) is 100% incompatible with other versions (which were lisp)
-        // so we just delete the old config. in the future, for smaller updates, we can
-        // add back the code previously there that upgraded the config file to the new
-        // format instead of overwriting it.
-
-        GUIEngine::showMessage(_("Your config file was too old, so it was deleted and a new one will be created."), 10.0f);
-        Log::info("UserConfig", "Your config file was too old, so it was deleted and a new one will be created.");
-        delete root;
-        return false;
-
-    }   // if configFileVersion<SUPPORTED_CONFIG_VERSION
-
-    // ---- Read parameters values (all parameter objects must have been created before this point if
-    //      you want them automatically read from the config file)
-    for (unsigned i = 0; i < all_params.size(); i++)
-    {
-        all_params[i]->findYourDataInAChildOf(root);
-    }
-
-
-    // ---- Read Saved GP's
-    UserConfigParams::m_saved_grand_prix_list.clearAndDeleteAll();
-    std::vector<XMLNode*> saved_gps;
-    root->getNodes("SavedGP", saved_gps);
-    const int gp_amount = (int)saved_gps.size();
-    for (int i=0; i<gp_amount; i++)
-    {
-        UserConfigParams::m_saved_grand_prix_list.push_back(
-                                           new SavedGrandPrix( saved_gps[i]) );
-    }
-    delete root;
-
-    return true;
-}   // loadConfig
-
-// ----------------------------------------------------------------------------
-/** Write settings to config file. */
-void UserConfig::saveConfig()
-{
-    const std::string filename = file_manager->getUserConfigFile(m_filename);
-    std::stringstream ss;
-    ss << "<?xml version=\"1.0\"?>\n";
-    ss << "<stkconfig version=\"" << m_current_config_version
-        << "\" >\n\n";
-    for (unsigned i = 0; i < all_params.size(); i++)
-    {
-        all_params[i]->write(ss);
-    }
-    ss << "</stkconfig>\n";
-
-    try
-    {
-        std::string s = ss.str();
-        std::ofstream configfile(FileUtils::getPortableWritingPath(filename),
-            std::ofstream::out);
-        configfile << ss.rdbuf();
-        configfile.close();
-    }
-    catch (std::runtime_error& e)
-    {
-        Log::error("UserConfig::saveConfig", "Failed to write config to %s, "
-            "because %s", filename.c_str(), e.what());
-    }
-
-}   // saveConfig
-
-// ----------------------------------------------------------------------------
-bool UserConfigParams::logMemory()
-     { return (m_verbosity&LOG_MEMORY) == LOG_MEMORY;}
-
-// ----------------------------------------------------------------------------
-bool UserConfigParams::logGUI ()
-     { return (m_verbosity&LOG_GUI) == LOG_GUI;   }
-
-// ----------------------------------------------------------------------------
-bool UserConfigParams::logAddons()
-     { return (m_verbosity&LOG_ADDONS) == LOG_ADDONS;}
-
-// ----------------------------------------------------------------------------
-bool UserConfigParams::logFlyable()
-     { return (m_verbosity&LOG_FLYABLE) == LOG_FLYABLE;  }
-
-// ----------------------------------------------------------------------------
-bool UserConfigParams::logMisc()
-     { return (m_verbosity&LOG_MISC) == LOG_MISC;  }
-

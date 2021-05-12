@@ -56,6 +56,10 @@ private:
     static std::mt19937 m_random_engine;
 
     static uint32_t m_random_seed;
+protected:
+    /** The instance of ItemManager while a race is on. */
+    static std::shared_ptr<ItemManager> m_item_manager;
+
 public:
     static void loadDefaultItemMeshes();
     static void removeTextures();

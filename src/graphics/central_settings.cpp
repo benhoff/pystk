@@ -23,7 +23,6 @@
 #include "graphics/gl_headers.hpp"
 #include "graphics/glwrap.hpp"
 #include "graphics/graphics_restrictions.hpp"
-#include "guiengine/engine.hpp"
 
 bool CentralVideoSettings::m_supports_sp = true;
 
@@ -61,34 +60,29 @@ void CentralVideoSettings::init()
     m_need_vertex_id_workaround = false;
 
     // Call to glGetIntegerv should not be made if --no-graphics is used
-    if (!GUIEngine::isNoGraphics())
-    {
-        glGetIntegerv(GL_MAJOR_VERSION, &m_gl_major_version);
-        glGetIntegerv(GL_MINOR_VERSION, &m_gl_minor_version);
-        const char *vendor = (const char *)glGetString(GL_VENDOR);
-        const char *renderer = (const char *)glGetString(GL_RENDERER);
-        const char *version = (const char *)glGetString(GL_VERSION);
-        Log::info("IrrDriver", "OpenGL version: %d.%d", m_gl_major_version, m_gl_minor_version);
-        Log::info("IrrDriver", "OpenGL vendor: %s", vendor);
-        Log::info("IrrDriver", "OpenGL renderer: %s", renderer);
-        Log::info("IrrDriver", "OpenGL version string: %s", version);
+    glGetIntegerv(GL_MAJOR_VERSION, &m_gl_major_version);
+    glGetIntegerv(GL_MINOR_VERSION, &m_gl_minor_version);
+    const char *vendor = (const char *)glGetString(GL_VENDOR);
+    const char *renderer = (const char *)glGetString(GL_RENDERER);
+    const char *version = (const char *)glGetString(GL_VERSION);
+    Log::info("IrrDriver", "OpenGL version: %d.%d", m_gl_major_version, m_gl_minor_version);
+    Log::info("IrrDriver", "OpenGL vendor: %s", vendor);
+    Log::info("IrrDriver", "OpenGL renderer: %s", renderer);
+    Log::info("IrrDriver", "OpenGL version string: %s", version);
 
-        if (strstr(vendor, "NVIDIA"))
-            glGetIntegerv(GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX, &m_gl_mem);
+    if (strstr(vendor, "NVIDIA"))
+        glGetIntegerv(GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX, &m_gl_mem);
 
-        if (m_gl_mem > 0)
-            Log::info("IrrDriver", "OpenGL total memory: %d", m_gl_mem/1024);
-    }
+    if (m_gl_mem > 0)
+        Log::info("IrrDriver", "OpenGL total memory: %d", m_gl_mem/1024);
 #if !defined(USE_GLES2)
     m_glsl = (m_gl_major_version > 3 || (m_gl_major_version == 3 && m_gl_minor_version >= 1))
-           && !UserConfigParams::m_force_legacy_device && m_supports_sp;
+           && m_supports_sp;
 #else
     m_glsl = m_gl_major_version >= 3 && !UserConfigParams::m_force_legacy_device;
 #endif
-    if (!GUIEngine::isNoGraphics())
-        initGL();
+    initGL();
 
-    if (!GUIEngine::isNoGraphics())
     {
         std::string driver((char*)(glGetString(GL_VERSION)));
         std::string card((char*)(glGetString(GL_RENDERER)));
@@ -355,6 +349,9 @@ bool CentralVideoSettings::isEXTTextureCompressionS3TCSRGBUsable() const
 
 bool CentralVideoSettings::isARBBufferStorageUsable() const
 {
+#ifdef RENDERDOC
+    return false;
+#endif
     return hasBufferStorage;
 }
 

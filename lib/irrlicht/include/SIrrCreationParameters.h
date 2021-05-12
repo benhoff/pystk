@@ -12,9 +12,6 @@
 #include "ILogger.h"
 #include "irrString.h"
 
-#if !defined(SERVER_ONLY) && defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
-#include "SDL_video.h"
-#endif
 
 namespace irr
 {
@@ -30,9 +27,6 @@ namespace irr
 			DeviceType(EIDT_BEST),
 			DriverType(video::EDT_BURNINGSVIDEO),
 			WindowSize(core::dimension2d<u32>(800, 600)),
-#if !defined(SERVER_ONLY) && defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
-			WindowPosition(core::position2di(SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED)),
-#endif
 			Bits(16),
 			ZBufferBits(16),
 			Fullscreen(false),

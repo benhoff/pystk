@@ -92,10 +92,6 @@ private:
     /** Version of the .kart file. */
     int   m_version;
 
-    // SFX files
-    // ---------------
-    std::vector<int> m_custom_sfx_id;     /**< Vector of custom SFX ids */
-
     // Display and gui
     // ---------------
     std::string m_name;               /**< The human readable Name of the kart
@@ -166,9 +162,6 @@ private:
      /** The speed with which the roll (when leaning in a curve) changes
       *  (in radians/second). */
      float      m_lean_speed;
-
-    /** Engine sound effect. */
-    std::string m_engine_sfx_type;
 
     // bullet physics data
     // -------------------
@@ -269,11 +262,6 @@ public:
     const std::string& getAbsoluteIconFile() const      { return m_icon_file; }
 
     // ------------------------------------------------------------------------
-    /** Returns custom sound effects for this kart. */
-    const int          getCustomSfxId (int type)
-                                       const  {return m_custom_sfx_id[type];  }
-
-    // ------------------------------------------------------------------------
     /** Returns the version of the .kart file. */
     int   getVersion                () const {return m_version;               }
 
@@ -290,10 +278,6 @@ public:
     /** Returns the list of groups this kart belongs to. */
     const std::vector<std::string>&
                   getGroups         () const {return m_groups;                }
-
-    // ------------------------------------------------------------------------
-    /** Returns the engine type (used to change sfx depending on kart size). */
-    const std::string& getEngineSfxType    () const {return m_engine_sfx_type;}
 
     // Bullet physics get functions
     //-----------------------------

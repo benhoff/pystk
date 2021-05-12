@@ -140,7 +140,7 @@ private:
     STKDynamicsWorld                *m_dynamics_world;
 
     /** Used in physics debugging to draw the physics world. */
-    IrrDebugDrawer                  *m_debug_drawer;
+    IrrDebugDrawer                  *m_debug_drawer = NULL;
 
     btCollisionDispatcher           *m_dispatcher;
     btBroadphaseInterface           *m_axis_sweep;
@@ -151,6 +151,7 @@ private:
     virtual ~Physics();
 
 public:
+    bool  isInit() { return m_debug_drawer; }
     // ----------------------------------------------------------------------------------------
     static Physics* get();
     // ----------------------------------------------------------------------------------------

@@ -37,7 +37,6 @@
 #include <vector>
 
 class KartProperties;
-class MusicInformation;
 class XMLNode;
 
 /**
@@ -81,8 +80,6 @@ public:
                                             early.                             */
     float m_delay_finish_time;         /**<Delay after a race finished before
                                            the results are displayed.          */
-    float m_music_credit_time;         /**<Time the music credits are
-                                           displayed.                          */
     int   m_max_karts;                 /**<Maximum number of karts.            */
     bool  m_smooth_normals;            /**< If normals for raycasts for wheels
                                            should be interpolated.             */
@@ -161,12 +158,6 @@ public:
      *  position is computed. */
     std::vector<int> m_score_increase;
 
-    /** Filename of the title music to play.*/
-    MusicInformation *m_title_music;
-
-    /** Filename of the music that is played when the track's music was not found */
-    MusicInformation *m_default_music;
-
     /** Maximum number of transform events of a replay. */
     int m_replay_max_frames;
 
@@ -181,17 +172,8 @@ public:
      *  be generated. */
     float m_replay_delta_steering;
 
-    /** The minimap size */
-    float m_minimap_size;
-
-    /* The size of icons for AIs and human players, respectively */
-    float m_minimap_ai_icon;
-    float m_minimap_player_icon;
-
     /** The field of view for 1, 2, 3, 4 player split screen. */
-    float m_camera_fov[MAX_PLAYER_COUNT];
-
-    float m_cutscene_fov;
+    float m_camera_fov;
 
     unsigned m_max_skinning_bones;
 
@@ -216,30 +198,6 @@ public:
     std::vector<std::string> m_digit_ttf;
     std::string m_color_emoji_ttf;
 
-    /** Configurable values used in SmoothNetworkBody class. */
-    float m_snb_min_adjust_length, m_snb_max_adjust_length,
-        m_snb_min_adjust_speed, m_snb_max_adjust_time,
-        m_snb_adjust_length_threshold;
-
-    /** URL for the server used for the API multiplayer. */
-    std::string m_server_api;
-
-    /** Version of the server API to use */
-    uint32_t m_server_api_version = 0;
-
-    /** URL for the server used for the addons management. */
-    std::string m_server_addons;
-
-    /** URL for the server used for hardware reporting statistics */
-    std::string m_server_hardware_report;
-
-    /** If true we allow all the server urls to be redirected by the news.xml. */
-    bool m_allow_news_redirects = true;
-
-    /** List of network capabilities to handle different servers with same
-     *  version. */
-    std::set<std::string> m_network_capabilities;
-
 private:
     /** True if stk_config has been loaded. This is necessary if the
      *  --stk-config command line parameter has been specified to avoid
@@ -258,8 +216,6 @@ public:
     void init_defaults();
     void getAllData(const XMLNode * root);
     void load(const std::string &filename);
-    const std::string &getMainMenuPicture(int n);
-    const std::string &getBackgroundPicture(int n);
     void initMusicFiles();
     void  getAllScores(std::vector<int> *all_scores, int num_karts);
     // ------------------------------------------------------------------------
@@ -285,6 +241,8 @@ public:
     // ------------------------------------------------------------------------
     /** Returns the physics frame per seconds rate. */
     int getPhysicsFPS() const { return m_physics_fps; }
+    
+    void setPhysicsFPS(int fps) { m_physics_fps = fps; }
 }
 ;   // STKConfig
 

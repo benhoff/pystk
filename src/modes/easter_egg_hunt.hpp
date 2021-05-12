@@ -20,7 +20,6 @@
 #define EASTER_EGG_HUNT_HPP
 
 #include "modes/linear_world.hpp"
-#include "states_screens/race_gui_base.hpp"
 #include "utils/cpp2011.hpp"
 
 #include <string>
@@ -44,8 +43,6 @@ private:
     /** Number of eggs found so far by players. */
     int   m_eggs_found;
 
-    bool  m_only_ghosts;
-
     float m_finish_time;
 public:
              EasterEggHunt();
@@ -63,11 +60,8 @@ public:
     virtual const std::string& getIdent() const OVERRIDE;
     virtual void terminateRace() OVERRIDE;
     virtual void update(int ticks) OVERRIDE;
-    virtual void getKartsDisplayInfo(
-                 std::vector<RaceGUIBase::KartIconDisplayInfo> *info) OVERRIDE;
     virtual void collectedItem(const AbstractKart *kart,
                                const ItemState *item     ) OVERRIDE;
-    void collectedEasterEggGhost(int world_id);
 
     const int  numberOfEggsFound() { return m_eggs_found; }
     const int  numberOfEggsToFind() { return m_number_of_eggs; }

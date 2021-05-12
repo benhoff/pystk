@@ -20,8 +20,7 @@
 
 #include <stdio.h>
 
-#include "audio/sfx_base.hpp"
-#include "animations/ipo.hpp"
+#include "config/stk_config.hpp"
 #include "graphics/material.hpp"
 #include "graphics/material_manager.hpp"
 #include "graphics/mesh_tools.hpp"
@@ -41,7 +40,6 @@ ThreeDAnimation::ThreeDAnimation(const XMLNode &node, TrackObject* object) : Ani
 {
     m_object = object;
 
-    m_is_paused = false;
     m_crash_reset  = false;
     m_explode_kart = false;
     m_flatten_kart = false;
@@ -49,7 +47,7 @@ ThreeDAnimation::ThreeDAnimation(const XMLNode &node, TrackObject* object) : Ani
     node.get("explode", &m_explode_kart);
     node.get("flatten", &m_flatten_kart);
 
-    m_important_animation = (World::getWorld()->getIdent() == IDENT_CUTSCENE);
+    m_important_animation = false;
     node.get("important", &m_important_animation);
 
     /** Save the initial position and rotation in the base animation object. */
@@ -83,11 +81,8 @@ void ThreeDAnimation::updateWithWorldTicks(bool has_physics)
     Vec3 xyz   = m_object->getPosition();
     Vec3 scale = m_object->getScale();
 
-    if (!m_is_paused)
-    {
-        int cur_ticks = World::getWorld()->getTicksSinceStart();
-        m_current_time = stk_config->ticks2Time(cur_ticks);
-    }
+    int cur_ticks = World::getWorld()->getTicksSinceStart();
+    m_current_time = stk_config->ticks2Time(cur_ticks);
 
     AnimationBase::getAt(m_current_time, &xyz, &m_hpr, &scale);     //updates all IPOs
     //m_node->setPosition(xyz.toIrrVector());
@@ -127,7 +122,5 @@ ThreeDAnimation* ThreeDAnimation::clone(TrackObject* obj)
 {
     ThreeDAnimation* animation = new ThreeDAnimation(*this);
     animation->m_object = obj;
-    for (unsigned i = 0; i < m_all_ipos.size(); i++)
-        animation->m_all_ipos[i] = m_all_ipos[i]->clone();
     return animation;
 }   // clone

@@ -18,7 +18,6 @@
 
 #include "tracks/check_goal.hpp"
 
-#include "config/user_config.hpp"
 #include "io/xml_node.hpp"
 #include "tracks/track.hpp"
 #include "tracks/track_object_manager.hpp"
@@ -58,11 +57,6 @@ void CheckGoal::update(float dt)
         if (isTriggered(m_previous_ball_position, world->getBallPosition(), 
                         /*kart index - ignore*/-1)                         )
         {
-            if (UserConfigParams::m_check_debug)
-            {
-                Log::info("CheckGoal", "Goal check structure"
-                          "%d triggered for ball.", m_index);
-            }
             trigger(0);
         }
         m_previous_ball_position = world->getBallPosition();

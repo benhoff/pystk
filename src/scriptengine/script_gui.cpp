@@ -18,20 +18,14 @@
 
 #include "script_track.hpp"
 
-#include "config/user_config.hpp"
-#include "input/device_manager.hpp"
-#include "input/input_device.hpp"
-#include "input/input_manager.hpp"
+#include "animations/three_d_animation.hpp"
+#include "input/input.hpp"
 #include "modes/world.hpp"
 #include "scriptengine/aswrappedcall.hpp"
-#include "scriptengine/script_track.hpp"
-#include "states_screens/dialogs/tutorial_message_dialog.hpp"
 #include "tracks/track.hpp"
 #include "tracks/track_object.hpp"
 #include "tracks/track_object_manager.hpp"
 #include "utils/string_utils.hpp"
-#include "utils/translation.hpp"
-#include "guiengine/message_queue.hpp"
 
 #include <angelscript.h>
 #include "scriptarray.hpp"
@@ -73,19 +67,12 @@ namespace Scripting
         /** Get the key bound to a player action (enum GUI::PlayerAction)*/
         std::string getKeyBinding(int Enum_value)
         {
-            InputDevice* device = input_manager->getDeviceManager()->getLatestUsedDevice();
-            DeviceConfig* config = device->getConfiguration();
-            PlayerAction ScriptAction = (PlayerAction)Enum_value;
-            irr::core::stringw control = config->getBindingAsString(ScriptAction);
-            std::string key = StringUtils::wideToUtf8(control);
-            return key;
+            return "";
         }
 
         /** Show the specified message in a popup */
         void displayModalMessage(std::string* input)
         {
-            irr::core::stringw out = StringUtils::utf8ToWide(*input);
-            new TutorialMessageDialog((out), true);
         }
 
         /** Display a Message using MessageQueue (enum GUI::MsgType)*/
@@ -93,23 +80,6 @@ namespace Scripting
         {
             irr::core::stringw msg = StringUtils::utf8ToWide(*input);
             MsgType msg_type = (MsgType)Enum_value;
-            MessageQueue::MessageType type;
-            switch (msg_type)
-            {
-                case MSG_ERROR:
-                    type = MessageQueue::MT_ERROR;
-                    break;
-                case MSG_FRIEND:
-                    type = MessageQueue::MT_FRIEND;
-                    break;
-                case MSG_ACHIEVEMENT:
-                    type = MessageQueue::MT_ACHIEVEMENT;
-                    break;
-                default:
-                    type = MessageQueue::MT_GENERIC;
-                    break;
-            }
-            MessageQueue::add(type, msg);
         }
 
         /** Displays an static Message. (enum GUI::MsgType)
@@ -120,96 +90,45 @@ namespace Scripting
         {
             irr::core::stringw msg = StringUtils::utf8ToWide(*input);
             MsgType msg_type = (MsgType)Enum_value;
-            MessageQueue::MessageType type;
-            switch (msg_type)
-            {
-                case MSG_ERROR:
-                    type = MessageQueue::MT_ERROR;
-                    break;
-                case MSG_FRIEND:
-                    type = MessageQueue::MT_FRIEND;
-                    break;
-                case MSG_ACHIEVEMENT:
-                    type = MessageQueue::MT_ACHIEVEMENT;
-                    break;
-                default:
-                    type = MessageQueue::MT_GENERIC;
-                    break;
-            }
-            MessageQueue::addStatic(type, msg);
         }
 
         void discardStaticMessage()
         {
-            MessageQueue::discardStatic();
         }
 
         void clearOverlayMessages()
         {
-            if (World::getWorld()->getRaceGUI())
-                World::getWorld()->getRaceGUI()->clearAllMessages();
         }
 
         /** Display text in the center of the screen for a few seconds */
         void displayOverlayMessage(std::string* input)
         {
-            if (!World::getWorld()->getRaceGUI())
-                return;
-            irr::core::stringw msg = StringUtils::utf8ToWide(*input);
-            std::vector<core::stringw> parts =
-                StringUtils::split(msg, '\n', false);
-            for (unsigned int n = 0; n < parts.size(); n++)
-            {
-                World::getWorld()->getRaceGUI()
-                                    ->addMessage(parts[n], NULL, 4.0f,
-                                                video::SColor(255, 255,255,255),
-                                                true, true);
-            }   // for n<parts.size()
         }
 
         /** Get translated version of string */
         std::string translate(std::string* input)
         {
-            irr::core::stringw out = translations->w_gettext(input->c_str());
-
-            return StringUtils::wideToUtf8(out);
+            return *input;
         }
 
         /** Translate string and insert values. e.g. GUI::translate("Hello %s !", "John") */
         std::string translate(std::string* formatString, std::string* arg1)
         {
-            irr::core::stringw out = translations->w_gettext(formatString->c_str());
-
-            out = StringUtils::insertValues(out,
-                                            StringUtils::utf8ToWide(*arg1));
-
-            return StringUtils::wideToUtf8(out);
+            return StringUtils::insertValues(*formatString, *arg1);
         }
 
         /** Translate string and insert values. e.g. GUI::translate("Hello %s !", "John") */
         std::string translate(std::string* formatString, std::string* arg1, std::string* arg2)
         {
-            irr::core::stringw out = translations->w_gettext(formatString->c_str());
-
-            out = StringUtils::insertValues(out,
-                                            StringUtils::utf8ToWide(*arg1),
-                                            StringUtils::utf8ToWide(*arg2));
-
-            return StringUtils::wideToUtf8(out);
+            return StringUtils::insertValues(*formatString, *arg1, *arg2);
         }
 
         /** Translate string and insert values. e.g. GUI::translate("Hello %s !", "John") */
         std::string translate(std::string* formatString, std::string* arg1, std::string* arg2,
             std::string* arg3)
         {
-            irr::core::stringw out = translations->w_gettext(formatString->c_str());
-
-            out = StringUtils::insertValues(out,
-                                            StringUtils::utf8ToWide(*arg1),
-                                            StringUtils::utf8ToWide(*arg2),
-                                            StringUtils::utf8ToWide(*arg3));
-
-            return StringUtils::wideToUtf8(out);
+            
+            return StringUtils::insertValues(*formatString, *arg1, *arg2, *arg3);
         }
         /** @}*/
         /** @}*/
@@ -266,15 +185,6 @@ namespace Scripting
 
         RaceGUIType getRaceGUIType()
         {
-            if (UserConfigParams::m_multitouch_draw_gui)
-            {
-                if (UserConfigParams::m_multitouch_controls == 1)
-                    return RGT_STEERING_WHEEL;
-                else if (UserConfigParams::m_multitouch_controls == 2)
-                    return RGT_ACCELEROMETER;
-                else if (UserConfigParams::m_multitouch_controls == 3)
-                    return RGT_GYROSCOPE;
-            }
             return RGT_KEYBOARD_GAMEPAD;
         }
         /** \endcond */
@@ -364,23 +274,11 @@ namespace Scripting
             engine->RegisterEnumValue("PlayerAction", "RESCUE", PA_RESCUE);
             engine->RegisterEnumValue("PlayerAction", "FIRE", PA_FIRE);
             engine->RegisterEnumValue("PlayerAction", "LOOK_BACK", PA_LOOK_BACK);
-            engine->RegisterEnumValue("PlayerAction", "PAUSE_RACE", PA_PAUSE_RACE);
-            engine->RegisterEnumValue("PlayerAction", "MENU_UP", PA_MENU_UP);
-            engine->RegisterEnumValue("PlayerAction", "MENU_DOWN", PA_MENU_DOWN);
-            engine->RegisterEnumValue("PlayerAction", "MENU_LEFT", PA_MENU_LEFT);
-            engine->RegisterEnumValue("PlayerAction", "MENU_RIGHT", PA_MENU_RIGHT);
-            engine->RegisterEnumValue("PlayerAction", "MENU_SELECT", PA_MENU_SELECT);
-            engine->RegisterEnumValue("PlayerAction", "MENU_CANCEL", PA_MENU_CANCEL);
-            engine->RegisterEnum("RaceGUIType");
+	    engine->RegisterEnum("RaceGUIType");
             engine->RegisterEnumValue("RaceGUIType", "KEYBOARD_GAMEPAD", RGT_KEYBOARD_GAMEPAD);
             engine->RegisterEnumValue("RaceGUIType", "STEERING_WHEEL", RGT_STEERING_WHEEL);
             engine->RegisterEnumValue("RaceGUIType", "ACCELEROMETER", RGT_ACCELEROMETER);
             engine->RegisterEnumValue("RaceGUIType", "GYROSCOPE", RGT_GYROSCOPE);
-            engine->RegisterEnum("MsgType");
-            engine->RegisterEnumValue("MsgType", "GENERIC", MSG_GENERIC);
-            engine->RegisterEnumValue("MsgType", "ERROR", MSG_ERROR);
-            engine->RegisterEnumValue("MsgType", "ACHIEVEMENT", MSG_ACHIEVEMENT);
-            engine->RegisterEnumValue("MsgType", "FRIEND", MSG_FRIEND);
         }
     }
 

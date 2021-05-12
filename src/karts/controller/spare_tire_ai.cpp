@@ -22,13 +22,11 @@
 #include "karts/kart_gfx.hpp"
 #include "karts/max_speed.hpp"
 #include "modes/three_strikes_battle.hpp"
-#include "states_screens/race_gui.hpp"
 #include "tracks/arena_graph.hpp"
 #include "tracks/arena_node.hpp"
 #include "physics/physics.hpp"
 #include "utils/random_generator.hpp"
 #include "utils/string_utils.hpp"
-#include "utils/translation.hpp"
 
 #include <algorithm>
 
@@ -84,8 +82,7 @@ void SpareTireAI::findDefaultPath()
 {
     assert(m_idx == -1);
 
-    RandomGenerator random;
-    m_idx = random.get(4);
+    m_idx = m_random.get(4);
     m_target_node = m_fixed_target_nodes[m_idx];
 
 }   // findDefaultPath
@@ -116,7 +113,6 @@ void SpareTireAI::spawn(int ticks_to_last)
     m_timer = ticks_to_last;
 
     Physics::get()->addKart(m_kart);
-    m_kart->startEngineSFX();
     m_kart->getKartGFX()->reset();
     if (m_kart->getNode())
         m_kart->getNode()->setVisible(true);
@@ -142,19 +138,14 @@ void SpareTireAI::crashed(const AbstractKart *k)
     // Nothing happen when two spare tire karts crash each other
     if (dynamic_cast<const SpareTireAI*>(k->getController()) != NULL) return;
 
-    // Tell players that they can have at most 3 lives
-    RaceGUIBase* r = World::getWorld()->getRaceGUI();
     if (m_tsb_world->getKartLife(k->getWorldKartId()) == 3)
     {
-        if (r)
-            r->addMessage(_("You can have at most 3 lives!"), k, 2.0f);
     }
     // Otherwise add one life for that kart 
     else
     {
         m_tsb_world->addKartLife(k->getWorldKartId());
-        if (r)
-            r->addMessage(_("+1 life."), k, 2.0f);
+//         World::getWorld()->getRaceGUI()->addMessage(_("+1 life."), k, 2.0f);
     }
     unspawn();
 

@@ -43,8 +43,6 @@ enum HandicapLevel : uint8_t
     HANDICAP_COUNT
 };
 
-class NetworkPlayerProfile;
-
 class RemoteKartInfo
 {
         std::string         m_kart_name;
@@ -57,8 +55,6 @@ class RemoteKartInfo
         HandicapLevel       m_handicap;
         float               m_default_kart_color;
         uint32_t            m_online_id;
-        std::string         m_country_code;
-        std::weak_ptr<NetworkPlayerProfile> m_profile;
 public:
      RemoteKartInfo(int player_id, const std::string& kart_name,
                     const irr::core::stringw& user_name, uint32_t host_id,
@@ -105,22 +101,13 @@ public:
     HandicapLevel getHandicap() const        { return m_handicap;         }
     float getDefaultKartColor() const      { return m_default_kart_color; }
     uint32_t getOnlineId() const           { return m_online_id;          }
-    void setCountryCode(const std::string& id) { m_country_code = id;     }
-    const std::string& getCountryCode() const { return m_country_code;    }
-    void setNetworkPlayerProfile(
-        std::weak_ptr<NetworkPlayerProfile> npp)       { m_profile = npp; }
-    std::weak_ptr<NetworkPlayerProfile> getNetworkPlayerProfile() const
-                                                      { return m_profile; }
-    bool disconnected() const               { return m_profile.expired(); }
+    bool disconnected() const               { return false; }
     bool isReserved() const
               { return m_host_id == std::numeric_limits<uint32_t>::max(); }
     void makeReserved()
     {
         m_host_id = std::numeric_limits<uint32_t>::max();
-        m_profile.reset();
     }
-    void copyFrom(std::shared_ptr<NetworkPlayerProfile> p,
-                  unsigned local_id);
     bool operator<(const RemoteKartInfo& other) const
     {
         return ((m_host_id<other.m_host_id) ||

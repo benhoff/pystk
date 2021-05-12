@@ -28,8 +28,6 @@
 #include "graphics/sp/sp_base.hpp"
 #include "graphics/material.hpp"
 #include "graphics/material_manager.hpp"
-#include "guiengine/engine.hpp"
-#include "guiengine/skin.hpp"
 #include "io/file_manager.hpp"
 #include "io/xml_node.hpp"
 #include "items/bowling.hpp"
@@ -142,7 +140,6 @@ void PowerupManager::loadPowerupsModels()
             Log::fatal("PowerupManager",
                        "Can't find item '%s' from powerup.xml, entry %d.",
                        name.c_str(), i+1);
-            exit(-1);
         }
     }
     
@@ -153,20 +150,6 @@ void PowerupManager::loadPowerupsModels()
     loadWeights(root, "tutorial-weight-list");
 
     delete root;
-
-    if (GUIEngine::isNoGraphics())
-    {
-        for (unsigned i = POWERUP_FIRST; i <= POWERUP_LAST; i++)
-        {
-            scene::IMesh *mesh = m_all_meshes[(PowerupType)i];
-            if (mesh)
-            {
-                // After minMax3D from loadPowerup mesh can free its vertex
-                // buffer
-                mesh->freeMeshVertexBuffer();
-            }
-        }
-    }
 }  // loadPowerupsModels
 
 //-----------------------------------------------------------------------------
@@ -454,7 +437,7 @@ void PowerupManager::loadPowerup(PowerupType type, const XMLNode &node)
 {
     std::string icon_file("");
     node.get("icon", &icon_file);
-    icon_file = GUIEngine::getSkin()->getThemedIcon("gui/icons/" + icon_file);
+    // icon_file = GUIEngine::getSkin()->getThemedIcon("gui/icons/" + icon_file);
 
 #ifdef DEBUG
     if (icon_file.size() == 0)
@@ -529,10 +512,7 @@ void PowerupManager::computeWeightsForRace(int num_karts)
     case RaceManager::MINOR_MODE_3_STRIKES:        class_name="battle";   break;
     case RaceManager::MINOR_MODE_FREE_FOR_ALL:     class_name="battle";   break;
     case RaceManager::MINOR_MODE_CAPTURE_THE_FLAG: class_name="battle";   break;
-    case RaceManager::MINOR_MODE_TUTORIAL:         class_name="tutorial"; break;
     case RaceManager::MINOR_MODE_EASTER_EGG:       /* fall through */
-    case RaceManager::MINOR_MODE_OVERWORLD:
-    case RaceManager::MINOR_MODE_CUTSCENE:
     case RaceManager::MINOR_MODE_SOCCER:           class_name="soccer";   break;
     default:
         Log::fatal("PowerupManager", "Invalid minor mode %d - aborting.",
@@ -620,60 +600,3 @@ PowerupManager::PowerupType PowerupManager::getRandomPowerup(unsigned int pos,
     }
     return (PowerupType)powerup;
 }   // getRandomPowerup
-
-// ============================================================================
-/** Unit testing is based on deterministic item distributions: if all random
- *  numbers from 0 till sum_of_all_weights - 1 are used, the original weight
- *  distribution must be restored.
- */
-void PowerupManager::unitTesting()
-{
-    // Test 1: Test all possible random numbers for tutorial, and
-    // make sure that always three bowling balls are picked.
-    // ----------------------------------------------------------
-    RaceManager::get()->setMinorMode(RaceManager::MINOR_MODE_TUTORIAL);
-    powerup_manager->computeWeightsForRace(1);
-    WeightsData wd = powerup_manager->m_current_item_weights;
-    int num_weights = wd.m_summed_weights_for_rank[0].back();
-    for(int i=0; i<num_weights; i++)
-    {
-#ifdef DEBUG
-        unsigned int n;
-        assert( powerup_manager->getRandomPowerup(1, &n, i)==POWERUP_BOWLING );
-        assert(n==3);
-#endif
-    }
-
-    // Test 2: Test all possible random numbers for 5 karts and rank 5
-    // ---------------------------------------------------------------
-    RaceManager::get()->setMinorMode(RaceManager::MINOR_MODE_NORMAL_RACE);
-    int num_karts = 5;
-    powerup_manager->computeWeightsForRace(num_karts);
-    wd = powerup_manager->m_current_item_weights;
-
-    int position = 5;
-    int section, next;
-    float weight;
-    wd.convertRankToSection(position, &section, &next, &weight);
-    assert(weight == 1.0f);
-    assert(section == next);
-    // Get the sum of all weights, which determine the number
-    // of different random numbers we need to test.
-    num_weights = wd.m_summed_weights_for_rank[section].back();
-    std::vector<int> count(2*POWERUP_LAST);
-    for (int i = 0; i<num_weights; i++)
-    {
-        unsigned int n;
-        int powerup = powerup_manager->getRandomPowerup(position, &n, i);
-        if(n==1)
-            count[powerup-1]++;
-        else
-            count[powerup+POWERUP_LAST-POWERUP_FIRST]++;
-    }
-
-    // Now make sure we reproduce the original weight distribution.
-    for(unsigned int i=0; i<wd.m_weights_for_section[section].size(); i++)
-    {
-        assert(count[i] == wd.m_weights_for_section[section][i]);
-    }
-}   // unitTesting

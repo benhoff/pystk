@@ -19,15 +19,9 @@
 #include "script_utils.hpp"
 
 #include "animations/three_d_animation.hpp"
-#include "input/device_manager.hpp"
-#include "input/input_device.hpp"
-#include "input/input_manager.hpp"
-#include "network/crypto.hpp"
-#include "network/network_config.hpp"
+#include "input/input.hpp"
 #include "scriptengine/aswrappedcall.hpp"
 #include "scriptengine/script_engine.hpp"
-#include "scriptengine/scriptarray.hpp"
-#include "states_screens/dialogs/tutorial_message_dialog.hpp"
 #include "tracks/track.hpp"
 #include "tracks/track_object.hpp"
 #include "tracks/track_object_manager.hpp"
@@ -46,6 +40,8 @@ namespace Scripting
 
     namespace Utils
     {
+        RandomGenerator scripting_random;
+        
         /** \addtogroup Scripting
         * @{
         */
@@ -120,13 +116,13 @@ namespace Scripting
         /** Generate a random integer value */
         int randomInt(int min, int maxExclusive)
         {
-            return min + (rand() % (maxExclusive - min));
+            return min + (scripting_random() % (maxExclusive - min));
         }
 
         /** Generate a random floating-point value */
         float randomFloat(int min, int maxExclusive)
         {
-            int val = min * 100 + (rand() % ((maxExclusive - min) * 100));
+            int val = min * 100 + (scripting_random() % ((maxExclusive - min) * 100));
             return val / 100.0f;
         }
 
@@ -160,20 +156,6 @@ namespace Scripting
             Log::error("Script", "%s", log->c_str());
         }
 
-        /** Return a sha256 checksum of string in an array of integers of size 32 */
-        CScriptArray* sha256(std::string* input)
-        {
-            asIScriptContext* ctx = asGetActiveContext();
-            asIScriptEngine* engine = ctx->GetEngine();
-            asITypeInfo* t = engine->GetTypeInfoByDecl("array<uint8>");
-            auto result = Crypto::sha256(*input);
-            CScriptArray* script_array = CScriptArray::Create(t, 32);
-            for (unsigned int i = 0; i < 32; i++)
-                script_array->SetValue(i, result.data() + i);
-            return script_array;
-        }
-
-        /* Convert an integer to its hexadecimal value */
         std::string toHex(uint64_t num)
         {
             std::ostringstream output;
@@ -181,11 +163,9 @@ namespace Scripting
             return output.str();
         }
 
-        /* Return true if current game is networking (ie playing online),
-         * where some limitation of scripting exists */
         bool isNetworking()
         {
-            return NetworkConfig::get()->isNetworking();
+            return false;
         }
 
         /* Return a (STK) version string to its integer value */
@@ -294,10 +274,6 @@ namespace Scripting
 
             r = engine->RegisterGlobalFunction("bool isNetworking()",
                                                mp ? WRAP_FN(isNetworking) : asFUNCTION(isNetworking),
-                                               call_conv); assert(r >= 0);
-
-            r = engine->RegisterGlobalFunction("array<uint8>@ sha256(const string &in)",
-                                               mp ? WRAP_FN(sha256) : asFUNCTION(sha256),
                                                call_conv); assert(r >= 0);
 
             r = engine->RegisterGlobalFunction("string toHex(uint64 num)",

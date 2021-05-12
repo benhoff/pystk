@@ -48,8 +48,6 @@ private:
 
     scene::ISceneNode* m_blue_flag_indicator;
 
-    SFXBase* m_scored_sound;
-
     int m_red_scores, m_blue_scores;
 
     /* Save the last captured flag ticks */
@@ -156,11 +154,6 @@ public:
         }
         return progress;
     }
-    // ------------------------------------------------------------------------
-    virtual void saveCompleteState(BareNetworkString* bns,
-                                   STKPeer* peer) OVERRIDE;
-    // ------------------------------------------------------------------------
-    virtual void restoreCompleteState(const BareNetworkString& b) OVERRIDE;
 };   // CaptureTheFlag
 
 #endif

@@ -22,6 +22,7 @@
 #include <cassert>
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <vector>
 
 #ifdef _IRR_COMPILE_WITH_ANDROID_DEVICE_
@@ -44,6 +45,7 @@ ContextManagerEGL::ContextManagerEGL()
     m_is_legacy_device = false;
     m_initialized = false;
     eglGetPlatformDisplay = NULL;
+    eglQueryDevices = NULL;
 
     memset(&m_creation_params, 0, sizeof(ContextEGLParams));
 }
@@ -145,7 +147,7 @@ bool ContextManagerEGL::init(const ContextEGLParams& params)
         return false;
     }
 
-    eglSwapInterval(m_egl_display, m_creation_params.swap_interval);
+    eglSwapInterval(m_egl_display, m_creation_params.vsync_enabled ? 1 : 0);
 
     m_initialized = true;
     return true;
@@ -158,11 +160,15 @@ bool ContextManagerEGL::initExtensions()
     {
         eglGetPlatformDisplay = (eglGetPlatformDisplay_t)
                                      eglGetProcAddress("eglGetPlatformDisplay");
+        eglQueryDevices = (eglQueryDevices_t)eglGetProcAddress("eglQueryDevices");
+        eglQueryDeviceString = (eglQueryDeviceString_t)eglGetProcAddress("eglQueryDeviceString");
     }
     else if (hasEGLExtension("EGL_EXT_platform_base"))
     {
         eglGetPlatformDisplay = (eglGetPlatformDisplay_t)
                                   eglGetProcAddress("eglGetPlatformDisplayEXT");
+        eglQueryDevices = (eglQueryDevices_t)eglGetProcAddress("eglQueryDevicesEXT");
+        eglQueryDeviceString = (eglQueryDeviceString_t)eglGetProcAddress("eglQueryDeviceStringEXT");
     }
     
     return true;
@@ -193,10 +199,22 @@ bool ContextManagerEGL::initDisplay()
     case CEGL_PLATFORM_X11:
         platform = EGL_PLATFORM_X11;
         break;
+    case CEGL_PLATFORM_DEVICE:
+        platform = EGL_PLATFORM_DEVICE;
+        break;
     case CEGL_PLATFORM_DEFAULT:
         break;
     }
     
+    if (m_creation_params.platform == CEGL_PLATFORM_DEVICE && eglQueryDevices != NULL) {
+        EGLint num_devices = 0;
+        eglQueryDevices(0, NULL, &num_devices);
+        std::vector<void*> devices(num_devices+1);
+        eglQueryDevices(num_devices, devices.data(), &num_devices);
+        if (m_creation_params.device_id < num_devices)
+            display = (EGLNativeDisplayType)devices[m_creation_params.device_id];
+//         os::Printer::log(("Using display "+std::to_string(m_creation_params.device_id)+" : "+eglQueryDeviceString(display, EGL_EXTENSIONS)).c_str());
+    }
     if (m_creation_params.platform != CEGL_PLATFORM_DEFAULT &&
         eglGetPlatformDisplay != NULL)
     {
@@ -218,6 +236,7 @@ bool ContextManagerEGL::initDisplay()
         return false;
     }
 
+// m_egl_display = eglGetPlatformDisplay(platform, EGL_DEFAULT_DISPLAY, NULL);
     int egl_version_major = 0;
     int egl_version_minor = 0;
 
@@ -403,6 +422,10 @@ bool ContextManagerEGL::createContext()
                 std::vector<EGLint> context_attribs;
                 context_attribs.push_back(EGL_CONTEXT_CLIENT_VERSION);
                 context_attribs.push_back(3);
+                if (m_creation_params.debug) {
+                    context_attribs.push_back(0x30FC);
+                    context_attribs.push_back(1);
+                }
                 context_attribs.push_back(EGL_NONE);
                 context_attribs.push_back(0);
 
@@ -420,6 +443,10 @@ bool ContextManagerEGL::createContext()
             std::vector<EGLint> context_attribs;
             context_attribs.push_back(EGL_CONTEXT_CLIENT_VERSION);
             context_attribs.push_back(2);
+            if (m_creation_params.debug) {
+                context_attribs.push_back(0x30FC);
+                context_attribs.push_back(1);
+            }
             context_attribs.push_back(EGL_NONE);
             context_attribs.push_back(0);
 
@@ -440,6 +467,10 @@ bool ContextManagerEGL::createContext()
                 context_attribs.push_back(4);
                 context_attribs.push_back(EGL_CONTEXT_MINOR_VERSION);
                 context_attribs.push_back(3);
+                if (m_creation_params.debug) {
+                    context_attribs.push_back(0x30FC);
+                    context_attribs.push_back(1);
+                }
                 context_attribs.push_back(EGL_NONE);
                 context_attribs.push_back(0);
 
@@ -456,6 +487,10 @@ bool ContextManagerEGL::createContext()
                 context_attribs.push_back(3);
                 context_attribs.push_back(EGL_CONTEXT_MINOR_VERSION);
                 context_attribs.push_back(3);
+                if (m_creation_params.debug) {
+                    context_attribs.push_back(0x30FC);
+                    context_attribs.push_back(1);
+                }
                 context_attribs.push_back(EGL_NONE);
                 context_attribs.push_back(0);
 
@@ -472,6 +507,10 @@ bool ContextManagerEGL::createContext()
                 context_attribs.push_back(3);
                 context_attribs.push_back(EGL_CONTEXT_MINOR_VERSION);
                 context_attribs.push_back(1);
+                if (m_creation_params.debug) {
+                    context_attribs.push_back(0x30FC);
+                    context_attribs.push_back(1);
+                }
                 context_attribs.push_back(EGL_NONE);
                 context_attribs.push_back(0);
 
@@ -491,6 +530,10 @@ bool ContextManagerEGL::createContext()
             context_attribs.push_back(2);
             context_attribs.push_back(EGL_CONTEXT_MINOR_VERSION);
             context_attribs.push_back(1);
+            if (m_creation_params.debug) {
+                context_attribs.push_back(0x30FC);
+                context_attribs.push_back(1);
+            }
             context_attribs.push_back(EGL_NONE);
             context_attribs.push_back(0);
 
@@ -500,7 +543,6 @@ bool ContextManagerEGL::createContext()
                                              &context_attribs[0]);
         }
     }
-
     return m_egl_context != EGL_NO_CONTEXT;
 }
 

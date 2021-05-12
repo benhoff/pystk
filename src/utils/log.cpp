@@ -18,8 +18,6 @@
 
 #include "utils/log.hpp"
 
-#include "config/user_config.hpp"
-#include "network/network_config.hpp"
 #include "utils/file_utils.hpp"
 #include "utils/tls.hpp"
 
@@ -45,19 +43,8 @@ bool          Log::m_no_colors     = false;
 FILE*         Log::m_file_stdout   = NULL;
 size_t        Log::m_buffer_size = 1;
 bool          Log::m_console_log = true;
-Synchronised<std::vector<struct Log::LineInfo> > Log::m_line_buffer;
+std::vector<struct Log::LineInfo> Log::m_line_buffer;
 thread_local  char g_prefix[11] = {};
-
-// ----------------------------------------------------------------------------
-void Log::setPrefix(const char* prefix)
-{
-    size_t len = strlen(prefix);
-    if (len > 10)
-        len = 10;
-    if (len != 0)
-        memcpy(g_prefix, prefix, len);
-    g_prefix[len] = 0;
-}   // setPrefix
 
 // ----------------------------------------------------------------------------
 /** Selects background/foreground colors for the message depending on
@@ -173,20 +160,6 @@ void Log::printMessage(int level, const char *component, const char *format,
         remaining = MAX_LENGTH - index > 0 ? MAX_LENGTH - index : 0;
     }
 
-#ifdef MOBILE_STK
-    // Mobile STK already has timestamp logging in console
-    std::string server_prefix = "Server";
-#else
-    std::string server_prefix = StkTime::getLogTime();
-#endif
-    if (NetworkConfig::get()->isNetworking() &&
-        NetworkConfig::get()->isServer())
-    {
-        index += snprintf (line + index, remaining,
-            "%s [%s] %s: ", server_prefix.c_str(),
-            names[level], component);
-    }
-    else
     {
         index += snprintf (line + index, remaining,
             "[%s] %s: ", names[level], component);
@@ -211,15 +184,12 @@ void Log::printMessage(int level, const char *component, const char *format,
     struct LineInfo li;
     li.m_level = level;
     li.m_line  = std::string(line);
-    m_line_buffer.lock();
-    m_line_buffer.getData().push_back(li);
-    if (m_line_buffer.getData().size() < m_buffer_size)
+    m_line_buffer.push_back(li);
+    if (m_line_buffer.size() < m_buffer_size)
     {
         // Buffer not yet full, don't flush data.
-        m_line_buffer.unlock();
         return;
     }
-    m_line_buffer.unlock();
     // Because of the unlock above it can happen that another thread adds
     // another line and calls flushBuffers() first before this thread can
     // call it, but that doesn't really matter, when this thread will finally
@@ -298,14 +268,12 @@ void Log::toggleConsoleLog(bool val)
  */
 void Log::flushBuffers()
 {
-    m_line_buffer.lock();
-    for (unsigned int i = 0; i < m_line_buffer.getData().size(); i++)
+    for (unsigned int i = 0; i < m_line_buffer.size(); i++)
     {
-        const LineInfo &li = m_line_buffer.getData()[i];
+        const LineInfo &li = m_line_buffer[i];
         writeLine(li.m_line.c_str(), li.m_level);
     }
-    m_line_buffer.getData().clear();
-    m_line_buffer.unlock();
+    m_line_buffer.clear();
 }   // flushBuffers
 
 // ----------------------------------------------------------------------------

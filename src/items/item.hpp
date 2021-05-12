@@ -31,10 +31,11 @@
 #include "utils/vec3.hpp"
 
 #include <line3d.h>
+#include <memory>
 
-class BareNetworkString;
 class AbstractKart;
 class LODNode;
+class RenderInfo;
 
 namespace irr
 {
@@ -146,8 +147,6 @@ protected:
 public:
     // ------------------------------------------------------------------------
          ItemState(ItemType type, const AbstractKart *owner=NULL, int id = -1);
-    // ------------------------------------------------------------------------
-         ItemState(const BareNetworkString& buffer);
     // ------------------------------------------------------------------------
     void initItem(ItemType type, const Vec3& xyz, const Vec3& normal);
     void update(int ticks);
@@ -272,7 +271,7 @@ public:
     ItemType getOriginalType() const { return m_original_type; }
     // ------------------------------------------------------------------------
     /** Sets the index of this item in the item manager list. */
-    void setItemId(unsigned int n) { m_item_id = n; }
+    virtual void setItemId(unsigned int n) { m_item_id = n; }
     // ------------------------------------------------------------------------
     /** Returns the index of this item in the item manager list. */
     unsigned int getItemId() const { return m_item_id; }
@@ -312,8 +311,6 @@ public:
     {
         return m_original_rotation;
     }
-    // ------------------------------------------------------------------------
-    void saveCompleteState(BareNetworkString* buffer) const;
 };   // class ItemState
 
 // ============================================================================
@@ -352,6 +349,8 @@ private:
     void          setMesh(scene::IMesh* mesh, scene::IMesh* lowres_mesh);
     void          handleNewMesh(ItemType type);
 
+    std::shared_ptr<RenderInfo> ri_;
+
 public:
                   Item(ItemType type, const Vec3& xyz, const Vec3& normal,
                        scene::IMesh* mesh, scene::IMesh* lowres_mesh,
@@ -359,6 +358,9 @@ public:
     virtual       ~Item ();
     virtual void  updateGraphics(float dt) OVERRIDE;
     virtual void  reset() OVERRIDE;
+    
+    virtual void setItemId(unsigned int n);
+
 
     //-------------------------------------------------------------------------
     /** Is called when the item is hit by a kart.  It sets the flag that the
@@ -428,6 +430,7 @@ public:
     {
         return (scene::ISceneNode *) m_node;
     }
+    uint32_t getObjectId() const;
 };   // class Item
 
 #endif

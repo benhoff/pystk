@@ -41,8 +41,11 @@
 #include "items/powerup_manager.hpp"
 #include "modes/world.hpp"
 #include "physics/physics.hpp"
-#include "states_screens/race_gui_base.hpp"
+#include "physics/triangle_mesh.hpp"
+#include "tracks/graph.hpp"
+#include "tracks/quad.hpp"
 #include "tracks/track.hpp"
+#include "utils/objecttype.h"
 #include "utils/profiler.hpp"
 
 #include "../../lib/irrlicht/source/Irrlicht/CSceneManager.h"
@@ -192,6 +195,170 @@ void ShaderBasedRenderer::renderShadows()
     PROFILER_POP_CPU_MARKER();
 }
 
+class TrackStencilShader: public Shader<TrackStencilShader, float> {
+public:
+	TrackStencilShader() {
+		loadProgram(OBJECT, GL_VERTEX_SHADER, "track.vert",
+					        GL_GEOMETRY_SHADER, "track.geom",
+                            GL_FRAGMENT_SHADER, "track_stencil.frag");
+        assignUniforms("depth");
+	}
+};
+class TrackShader: public TextureShader<TrackShader, 1,/* core::vector2di, */unsigned int, unsigned int> {
+public:
+	TrackShader() {
+		loadProgram(OBJECT, GL_VERTEX_SHADER, "screenquad.vert",
+                            GL_FRAGMENT_SHADER, "track_seg.frag");
+        assignUniforms(/*"size", */"background_label", "track_label");
+        assignSamplerNames(0, "tex", ST_NEAREST_FILTERED);
+	}
+};
+
+class TrackRenderer {
+    GLuint vao_ = 0;
+	GLuint vbo_ = 0;
+	GLuint n_vert_ = 0;
+	
+	TrackShader track_shader_;
+	TrackStencilShader track_stencil_shader_;
+	
+	TrackRenderer(TrackRenderer&) = delete;
+	TrackRenderer& operator=(TrackRenderer&) = delete;
+	
+public:
+	TrackRenderer() = default;
+	~TrackRenderer(){
+		if (vao_)
+			glDeleteVertexArrays(1, &vao_);
+		if (vbo_)
+			glDeleteBuffers(1, &vbo_);
+		vbo_ = 0;
+	}
+	
+	
+	void render() {
+		check_update();
+		track_stencil_shader_.use();
+		glBindVertexArray(vao_);
+		track_stencil_shader_.setUniforms(0.5f);
+		glDrawArrays(GL_TRIANGLES, 0, n_vert_);
+        glBindVertexArray(0);
+	}
+	void copyTexture(GLuint tex) {
+		track_shader_.setTextureUnits(tex);
+		// Slight misuse of the shader, but it still works
+		track_shader_.drawFullScreenEffect(0, 0);
+	}
+	void drawStencil(GLuint tex) {
+		track_shader_.setTextureUnits(tex);
+		track_shader_.drawFullScreenEffect((int)ObjectType::OT_BACKGROUND, (int)ObjectType::OT_TRACK);
+	}
+	Graph * updated_graph_ = NULL;
+	void check_update() {
+		if (updated_graph_ != Graph::get() && Graph::get()) {
+			update();
+			updated_graph_ = Graph::get();
+		}
+	}
+	void update() {
+		Graph * g = Graph::get();
+		Track * t = Track::getCurrentTrack();
+		const unsigned int total_nodes = g->getNumNodes();
+		std::vector<float> vertices;
+		for(unsigned int i=0; i<total_nodes; i++) {
+			Quad * q = g->getQuad(i);
+			if (!q->isInvisible()) {
+				// TODO: An index buffer would make this faster...
+				for(int i=0; i<3; i++) {
+					Vec3 v = (*q)[3-i], vv; // Cull order
+					vertices.push_back(v.x());
+					vertices.push_back(v.y());
+					vertices.push_back(v.z());
+				}
+				for(int i=2; i<5; i++) {
+					Vec3 v = (*q)[3-(i%4)]; // Cull order
+					vertices.push_back(v.x());
+					vertices.push_back(v.y());
+					vertices.push_back(v.z());
+				}
+			}
+		}
+		n_vert_ = vertices.size();
+		
+		if (!vbo_)
+			glGenBuffers(1, &vbo_);
+		
+		glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+		glBufferData(GL_ARRAY_BUFFER, vertices.size()*sizeof(float), vertices.data(), GL_STATIC_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		
+		
+		if (!vao_) {
+			glGenVertexArrays(1, &vao_);
+			glBindVertexArray(vao_);
+			glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+			glEnableVertexAttribArray(0);
+			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
+			glBindVertexArray(0);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+		}
+	}
+};
+
+
+// ----------------------------------------------------------------------------
+void ShaderBasedRenderer::renderTrackLabel(GLuint tex) const
+{
+	// Save the state
+	GLboolean cull = 0;
+	glGetBooleanv(GL_CULL_FACE, &cull);
+	
+	// Setup the state for shadow volume rendering
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_STENCIL_TEST);
+	glDisable(GL_BLEND);
+	glDisable(GL_CULL_FACE);
+	glEnable(GL_DEPTH_CLAMP); // Render the road map always
+	
+	// No writing
+	glDepthMask(GL_FALSE);
+	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+	
+	// Setup the stencil buffer
+	glClearStencil(0);
+	glClear(GL_STENCIL_BUFFER_BIT);
+    glStencilFunc(GL_ALWAYS, 0, 0xff);
+	glStencilOpSeparate(GL_BACK, GL_KEEP, GL_KEEP, GL_INCR_WRAP);
+	glStencilOpSeparate(GL_FRONT, GL_KEEP, GL_KEEP, GL_DECR_WRAP); 
+	glDepthFunc(GL_GEQUAL);
+
+    
+	// Disable the draw buffer
+	m_track_renderer->render();
+
+	glDisable(GL_DEPTH_TEST);
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+	// Copy texture first (stencil test off)
+	m_track_renderer->copyTexture(tex);
+
+	// Only override the background class
+	glStencilFunc(GL_NOTEQUAL, 0x0, 0xFF);
+	m_track_renderer->drawStencil(tex);
+
+	// Reset the state
+	glDepthFunc(GL_LEQUAL);
+	glDepthMask(GL_TRUE);
+	glDisable(GL_DEPTH_CLAMP);
+    glDisable(GL_STENCIL_TEST);
+	glEnable(GL_DEPTH_TEST);
+	if (cull)
+		glEnable(GL_CULL_FACE);
+	else
+		glDisable(GL_CULL_FACE);
+}
+
+
 // ============================================================================
 class CombineDiffuseColor : public TextureShader<CombineDiffuseColor, 7,
                                                  std::array<float, 4> >
@@ -259,10 +426,24 @@ void ShaderBasedRenderer::renderSceneDeferred(scene::ICameraSceneNode * const ca
         float clear_color_empty[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
         glClearBufferfv(GL_COLOR, 0, clear_color_empty);
         glClearBufferfv(GL_COLOR, 1, clear_color_empty);
-        glClearBufferfi(GL_DEPTH_STENCIL, 0, 1.0f, 0);
+		glClearBufferfi(GL_DEPTH_STENCIL, 0, 1.0f, 0);
+
+        GLuint CI[4] = { 0 };
+        glClearBufferuiv(GL_COLOR, 3, CI);
+        
         ScopedGPUTimer Timer(irr_driver->getGPUTimer(Q_SOLID_PASS));
         SP::draw(SP::RP_1ST, SP::DCT_NORMAL);
     }
+    {
+		m_rtts->getFBO(FBO_LABEL).bind();
+		
+		GLuint CI[4] = { 0 };
+		glClearBufferuiv(GL_COLOR, 3, CI);
+		renderTrackLabel(m_rtts->getFBO(FBO_COLOR_AND_LABEL_TMP).getRTT()[3]);
+		
+		// Reset the FBO to color, labels are all rendered
+		m_rtts->getFBO(FBO_SP).bind();
+	}
 
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     // Lights
@@ -434,7 +615,7 @@ void ShaderBasedRenderer::renderScene(scene::ICameraSceneNode * const camnode,
 
     if (forceRTT)
     {
-        m_rtts->getFBO(FBO_COLORS).bind();
+        m_rtts->getFBO(FBO_COLOR_AND_LABEL_TMP).bind();
         video::SColor clearColor(0, 150, 150, 150);
         if (World::getWorld() != NULL)
             clearColor = irr_driver->getClearColor();
@@ -444,8 +625,10 @@ void ShaderBasedRenderer::renderScene(scene::ICameraSceneNode * const camnode,
         glClear(GL_COLOR_BUFFER_BIT);
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+        
+        GLuint CI[4] = { 0 };
+        glClearBufferuiv(GL_COLOR, 3, CI);
     }
-
     {
         glDepthMask(GL_TRUE);
         glEnable(GL_DEPTH_TEST);
@@ -453,7 +636,17 @@ void ShaderBasedRenderer::renderScene(scene::ICameraSceneNode * const camnode,
         ScopedGPUTimer Timer(irr_driver->getGPUTimer(Q_SOLID_PASS));
         SP::draw(SP::RP_1ST, SP::DCT_NORMAL);
     }
-
+	if (forceRTT) {
+		m_rtts->getFBO(FBO_LABEL).bind();
+		
+		GLuint CI[4] = { 0 };
+		glClearBufferuiv(GL_COLOR, 3, CI);
+		renderTrackLabel(m_rtts->getFBO(FBO_COLOR_AND_LABEL_TMP).getRTT()[3]);
+		
+		// Reset the FBO to color, labels are all rendered
+		m_rtts->getFBO(FBO_COLORS).bind();
+	}
+	
     {
         PROFILER_PUSH_CPU_MARKER("- Skybox", 0xFF, 0x00, 0xFF);
         ScopedGPUTimer Timer(irr_driver->getGPUTimer(Q_SKYBOX));
@@ -490,6 +683,7 @@ void ShaderBasedRenderer::renderScene(scene::ICameraSceneNode * const camnode,
         glDepthMask(GL_FALSE);
     }
     glBindVertexArray(0);
+// 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 } //renderScene
 
@@ -502,9 +696,6 @@ void ShaderBasedRenderer::debugPhysics()
     // the bullet debug view.
     if(Physics::get())
     {
-        if (UserConfigParams::m_artist_debug_mode)
-            Physics::get()->draw();
-
         IrrDebugDrawer* debug_drawer = Physics::get()->getDebugDrawer();
         if (debug_drawer != NULL && debug_drawer->debugEnabled())
         {
@@ -544,7 +735,7 @@ void ShaderBasedRenderer::renderPostProcessing(Camera * const camera,
     scene::ICameraSceneNode * const camnode = camera->getCameraSceneNode();
     const core::recti &viewport = camera->getViewport();
 
-    bool isRace = StateManager::get()->getGameState() == GUIEngine::GAME;
+    bool isRace = true;
     FrameBuffer *fbo = m_post_processing->render(camnode, isRace, m_rtts);
 
     // The viewport has been changed using glViewport function directly
@@ -599,7 +790,8 @@ ShaderBasedRenderer::ShaderBasedRenderer()
     SharedGPUObjects::init();
     SP::init();
     SP::initSTKRenderer(this);
-    createPostProcessing();
+	createPostProcessing();
+    m_track_renderer = new TrackRenderer();
 }
 
 // ----------------------------------------------------------------------------
@@ -608,6 +800,7 @@ ShaderBasedRenderer::~ShaderBasedRenderer()
     delete m_spherical_harmonics;
     delete m_skybox;
     delete m_rtts;
+	delete m_track_renderer;
     ShaderBase::killShaders();
     SP::destroy();
     ShaderFilesManager::kill();
@@ -705,127 +898,13 @@ void ShaderBasedRenderer::addSunLight(const core::vector3df &pos)
     m_shadow_matrices.addLight(pos);
 }
 
-// ----------------------------------------------------------------------------
-void ShaderBasedRenderer::render(float dt, bool is_loading)
-{
-    World *world = World::getWorld(); // Never NULL.
-    Track *track = Track::getCurrentTrack();
-    
-    RaceGUIBase *rg = world->getRaceGUI();
-    if (rg) rg->update(dt);
-
-    if (!CVS->isDeferredEnabled())
-    {
-        prepareForwardRenderer();
-    }
-
-    {
-        PROFILER_PUSH_CPU_MARKER("Update scene", 0x0, 0xFF, 0x0);
-        static_cast<scene::CSceneManager *>(irr_driver->getSceneManager())
-            ->OnAnimate(os::Timer::getTime());
-        PROFILER_POP_CPU_MARKER();
-    }
-
-    assert(Camera::getNumCameras() < MAX_PLAYER_COUNT + 1);
-    for(unsigned int cam = 0; cam < Camera::getNumCameras(); cam++)
-    {
-        SP::sp_cur_player = cam;
-        SP::sp_cur_buf_id[cam] = (SP::sp_cur_buf_id[cam] + 1) % 3;
-        Camera * const camera = Camera::getCamera(cam);
-        scene::ICameraSceneNode * const camnode = camera->getCameraSceneNode();
-
-        std::ostringstream oss;
-        oss << "drawAll() for kart " << cam;
-        PROFILER_PUSH_CPU_MARKER(oss.str().c_str(), (cam+1)*60,
-                                 0x00, 0x00);
-        camera->activate(!CVS->isDeferredEnabled());
-        rg->preRenderCallback(camera);   // adjusts start referee
-        irr_driver->getSceneManager()->setActiveCamera(camnode);
-
-        computeMatrixesAndCameras(camnode, m_rtts->getWidth(), m_rtts->getHeight());
-        if (CVS->isDeferredEnabled())
-        {
-            renderSceneDeferred(camnode, dt, track->hasShadows(), false); 
-        }
-        else
-        {
-            renderScene(camnode, dt, track->hasShadows(), false); 
-        }
-
-        if (irr_driver->getBoundingBoxesViz())
-        {
-            glEnable(GL_DEPTH_TEST);
-            glDepthMask(GL_TRUE);
-            SP::drawBoundingBoxes();
-            m_draw_calls.renderBoundingBoxes();
-        }
-
-        debugPhysics();
-        
-        if (CVS->isDeferredEnabled() && !is_loading)
-        {
-            renderPostProcessing(camera, cam == 0);
-        }
-
-        // Save projection-view matrix for the next frame
-        camera->setPreviousPVMatrix(irr_driver->getProjViewMatrix());
-
-        PROFILER_POP_CPU_MARKER();
-
-    }  // for i<world->getNumKarts()
-    glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    glUseProgram(0);
-
-    // Set the viewport back to the full screen for race gui
-    irr_driver->getVideoDriver()->setViewPort(core::recti(0, 0,
-        irr_driver->getActualScreenSize().Width,
-        irr_driver->getActualScreenSize().Height));
-
-    m_current_screen_size = core::vector2df(
-                                    (float)irr_driver->getActualScreenSize().Width, 
-                                    (float)irr_driver->getActualScreenSize().Height);
-
-    for(unsigned int i=0; i<Camera::getNumCameras(); i++)
-    {
-        Camera *camera = Camera::getCamera(i);
-        std::ostringstream oss;
-        oss << "renderPlayerView() for kart " << i;
-
-        PROFILER_PUSH_CPU_MARKER(oss.str().c_str(), 0x00, 0x00, (i+1)*60);
-        rg->renderPlayerView(camera, dt);
-
-        PROFILER_POP_CPU_MARKER();
-    }  // for i<getNumKarts
-
-    {
-        ScopedGPUTimer Timer(irr_driver->getGPUTimer(Q_GUI));
-        PROFILER_PUSH_CPU_MARKER("GUIEngine", 0x75, 0x75, 0x75);
-        // Either render the gui, or the global elements of the race gui.
-        GUIEngine::render(dt, is_loading);
-
-        if (irr_driver->getRenderNetworkDebug() && !is_loading)
-            irr_driver->renderNetworkDebug();
-        PROFILER_POP_CPU_MARKER();
-    }
-
-    // Render the profiler
-    if(UserConfigParams::m_profiler_enabled)
-    {
-        PROFILER_DRAW();
-    }
-
-#ifdef DEBUG
-    drawDebugMeshes();
-#endif
-
-    PROFILER_PUSH_CPU_MARKER("EndScene", 0x45, 0x75, 0x45);
-    irr_driver->getVideoDriver()->endScene();
-    PROFILER_POP_CPU_MARKER();
-
+void ShaderBasedRenderer::minimalRender(float dt) {
+	PROFILER_PUSH_CPU_MARKER("Update scene", 0x0, 0xFF, 0x0);
+	static_cast<scene::CSceneManager *>(irr_driver->getSceneManager())->OnAnimate(os::Timer::getTime());
+	PROFILER_POP_CPU_MARKER();
+	
     m_post_processing->update(dt);
-} //render
+}
 
 // ----------------------------------------------------------------------------
 std::unique_ptr<RenderTarget> ShaderBasedRenderer::createRenderTarget(const irr::core::dimension2du &dimension,
@@ -844,6 +923,8 @@ void ShaderBasedRenderer::renderToTexture(GL3RenderTarget *render_target,
     SP::sp_cur_player = 0;
     SP::sp_cur_buf_id[0] = 0;
     assert(m_rtts != NULL);
+    Track *track = Track::getCurrentTrack();
+	m_rtts->getFBO(FBO_COLORS).bind();
 
     irr_driver->getSceneManager()->setActiveCamera(camera);
     static_cast<scene::CSceneManager *>(irr_driver->getSceneManager())
@@ -854,14 +935,17 @@ void ShaderBasedRenderer::renderToTexture(GL3RenderTarget *render_target,
 
     if (CVS->isDeferredEnabled())
     {
-        renderSceneDeferred(camera, dt, false, true);
-        render_target->setFrameBuffer(m_post_processing.get()
-            ->render(camera, false, m_rtts));
+        renderSceneDeferred(camera, dt, track->hasShadows(), true);
+		FrameBuffer *fbo = m_post_processing->render(camera, true, m_rtts);
+		m_rtts->getFBO(FBO_COLORS).bind();
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		m_post_processing->renderPassThrough(fbo->getRTT()[0], m_rtts->getWidth(), m_rtts->getHeight());
+        render_target->setFrameBuffer(&m_rtts->getFBO(FBO_COLOR_AND_LABEL));
     }
     else
     {
-        renderScene(camera, dt, false, true);
-        render_target->setFrameBuffer(&m_rtts->getFBO(FBO_COLORS));
+        renderScene(camera, dt, track->hasShadows(), true);
+        render_target->setFrameBuffer(&m_rtts->getFBO(FBO_COLOR_AND_LABEL));
     }
 
     // reset

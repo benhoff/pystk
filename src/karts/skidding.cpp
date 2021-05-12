@@ -21,16 +21,13 @@
 #ifdef SKID_DEBUG
 #  include "graphics/show_curve.hpp"
 #endif
-#include "achievements/achievements_status.hpp"
-#include "config/player_manager.hpp"
 #include "karts/kart.hpp"
 #include "karts/kart_gfx.hpp"
 #include "karts/kart_properties.hpp"
 #include "karts/max_speed.hpp"
 #include "karts/controller/controller.hpp"
 #include "modes/world.hpp"
-#include "network/network_string.hpp"
-#include "network/rewind_manager.hpp"
+
 #include "physics/btKart.hpp"
 #include "tracks/track.hpp"
 #include "utils/log.hpp"
@@ -86,57 +83,8 @@ void Skidding::reset()
 
     btVector3 rot(0, 0, 0);
     // Only access the vehicle if the kart is not a ghost
-    if (!m_kart->isGhostKart())
-        m_kart->getVehicle()->setTimedRotation(0, 0);
+    m_kart->getVehicle()->setTimedRotation(0, 0);
 }   // reset
-
-// ----------------------------------------------------------------------------
-/** Save the skidding state of a kart. It only saves the important physics
- *  values including m_remaining_jump_time (while this is mostly a graphical
- *  effect, you can't skid while still doing a jump, so it does affect the
- *  state). Similarly m_real_steering is output of updateRewind() and will be
- *  recomputed every frame when update() is called, and similar for
- *  m_skid_bonus_ready
- *  \param buffer Buffer for the state information. 
- */
-void Skidding::saveState(BareNetworkString *buffer)
-{
-    buffer->addUInt8(m_skid_state);
-    buffer->addUInt16(m_skid_time);
-    buffer->addFloat(m_skid_factor);
-    buffer->addFloat(m_visual_rotation);
-}   // saveState
-
-// ----------------------------------------------------------------------------
-/** Restores the skidding state of a kart.
- *  \param buffer Buffer with state information. 
- */
-void Skidding::rewindTo(BareNetworkString *buffer)
-{
-    m_skid_state = (SkidState)buffer->getUInt8();
-    m_skid_time = buffer->getUInt16();
-    m_skid_factor = buffer->getFloat();
-    m_visual_rotation = buffer->getFloat();
-}   // rewindTo
-
-// ----------------------------------------------------------------------------
-void Skidding::prepareSmoothing()
-{
-    m_prev_visual_rotation = getVisualSkidRotation();
-}   // prepareSmoothing
-
-// ----------------------------------------------------------------------------
-void Skidding::checkSmoothing()
-{
-    float diff = fabsf(m_prev_visual_rotation - m_visual_rotation);
-    if (diff > 0.1f)
-    {
-        m_smoothing_time = m_kart->getTimeFullSteer(diff);
-        m_smoothing_dt = 0.0f;
-    }
-    else
-        m_smoothing_dt = -1.0f;
-}   // checkSmoothing
 
 // ----------------------------------------------------------------------------
 /** Computes the actual steering fraction to be used in the physics, and
@@ -450,11 +398,7 @@ void Skidding::update(int ticks, bool is_on_ground,
             // Don't re-update for local player controller when rewinding
             if (m_graphical_remaining_jump_time == 0.0f)
             {
-                if (RewindManager::get()->isRewinding() &&
-                    !m_kart->getController()->isLocalPlayerController())
-                    m_graphical_remaining_jump_time = m_remaining_jump_time;
-                else if (!RewindManager::get()->isRewinding())
-                    m_graphical_remaining_jump_time = m_remaining_jump_time;
+                m_graphical_remaining_jump_time = m_remaining_jump_time;
             }
 
 #ifdef SKID_DEBUG
@@ -553,19 +497,6 @@ void Skidding::update(int ticks, bool is_on_ground,
 
                     m_skid_bonus_end_ticks = World::getWorld()->getTicksSinceStart() +
                         stk_config->time2Ticks(1.0f);
-
-                    if (m_kart->getController()->canGetAchievements())
-                    {
-                        if (RaceManager::get()->isLinearRaceMode())
-                        {
-                            PlayerManager::increaseAchievement(
-                                    AchievementsStatus::SKIDDING_1LAP, 1);
-                            PlayerManager::increaseAchievement(
-                                    AchievementsStatus::SKIDDING_1RACE, 1);
-                        }
-                        PlayerManager::increaseAchievement(
-                                AchievementsStatus::SKIDDING, 1);
-                    }
                 }
                 else
                 {

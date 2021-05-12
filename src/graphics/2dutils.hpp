@@ -58,6 +58,12 @@ void draw2DImageCustomAlpha(const irr::video::ITexture* texture,
                  const irr::core::rect<irr::s32>* clipRect,
                  float rotation, float custom_alpha);
 
+void draw2DImageCustomAlpha(const irr::video::ITexture* texture,
+                 const irr::core::rect<irr::s32>& destRect,
+                 const irr::core::rect<irr::s32>& sourceRect,
+                 const irr::core::rect<irr::s32>* clipRect,
+                 float rotation, float custom_alpha);
+
 void draw2DVertexPrimitiveList(irr::video::ITexture *t, const void* vertices,
                   irr::u32 vertexCount, const void* indexList,
                   irr::u32 primitiveCount,

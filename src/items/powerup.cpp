@@ -18,9 +18,6 @@
 
 #include "items/powerup.hpp"
 
-#include "audio/sfx_base.hpp"
-#include "audio/sfx_manager.hpp"
-#include "config/player_manager.hpp"
 #include "config/stk_config.hpp"
 #include "items/attachment.hpp"
 #include "items/item_manager.hpp"
@@ -30,9 +27,7 @@
 #include "karts/controller/controller.hpp"
 #include "karts/kart_properties.hpp"
 #include "modes/world.hpp"
-#include "network/network_config.hpp"
-#include "network/network_string.hpp"
-#include "network/rewind_manager.hpp"
+
 #include "physics/triangle_mesh.hpp"
 #include "tracks/track.hpp"
 #include "utils/string_utils.hpp"
@@ -45,7 +40,6 @@
 Powerup::Powerup(AbstractKart* kart)
 {
     m_kart      = kart;
-    m_sound_use = NULL;
     reset();
 }   // Powerup
 
@@ -54,7 +48,6 @@ Powerup::Powerup(AbstractKart* kart)
  */
 Powerup::~Powerup()
 {
-    if(m_sound_use) m_sound_use->deleteSFX();
 }   // ~Powerup
 
 //-----------------------------------------------------------------------------
@@ -65,65 +58,14 @@ void Powerup::reset()
     m_type = PowerupManager::POWERUP_NOTHING;
     m_number = 0;
 
-    // Ghost kart will update powerup every frame
-    if (m_kart->isGhostKart())
-        return;
     int type, number;
     World::getWorld()->getDefaultCollectibles( &type, &number );
     set( (PowerupManager::PowerupType)type, number );
 }   // reset
 
 //-----------------------------------------------------------------------------
-/** Save the powerup state. Called from the kart rewinder when saving the kart
- *  state or when a new powerup even is saved.
- *  \param buffer The buffer into which to save the state.
- */
-void Powerup::saveState(BareNetworkString *buffer) const
-{
-    buffer->addUInt8(uint8_t(m_type));
-    buffer->addUInt8(m_number);   // number is <=255
-}   // saveState
-
-//-----------------------------------------------------------------------------
-/** Restore a powerup state. Called from the kart rewinder when restoring a
- *  state.
- *  \param buffer Buffer with the state of this powerup object.
- */
-void Powerup::rewindTo(BareNetworkString *buffer)
-{
-    PowerupManager::PowerupType new_type = 
-        PowerupManager::PowerupType(buffer->getUInt8());
-    int n=0;
-    if(new_type==PowerupManager::POWERUP_NOTHING)
-    {
-        set(new_type, 0);
-        return;
-    }
-    n = buffer->getUInt8();
-    if(m_type == new_type)
-        m_number = n;
-    else
-    {
-        m_number = 0;
-        set(new_type, n);
-    }
-}   // rewindTo
-
-//-----------------------------------------------------------------------------
 void Powerup::update(int ticks)
 {
-    // Remove any sound ticks that should have played
-    const int remove_ticks = World::getWorld()->getTicksSinceStart() - 1000;
-    for (auto it = m_played_sound_ticks.begin();
-         it != m_played_sound_ticks.end();)
-    {
-        if (*it < remove_ticks)
-        {
-            it = m_played_sound_ticks.erase(it);
-            continue;
-        }
-        break;
-    }
 }   // update
 
 //-----------------------------------------------------------------------------
@@ -148,54 +90,6 @@ void Powerup::set(PowerupManager::PowerupType type, int n)
     if(n>255) n = 255;
 
     m_number=n;
-
-    // Don't re-create sound sound during rewinding
-    if (RewindManager::get()->isRewinding())
-        return;
-
-    if (m_sound_use != NULL)
-    {
-        m_sound_use->deleteSFX();
-        m_sound_use = NULL;
-    }
-
-    switch (m_type)
-    {
-        // No sound effect when arming the glove
-        case PowerupManager::POWERUP_SWATTER:
-            break;
-
-        case PowerupManager::POWERUP_ZIPPER:
-            break ;
-
-        case PowerupManager::POWERUP_BOWLING:
-            m_sound_use = SFXManager::get()->createSoundSource("bowling_shoot");
-            break ;
-
-        case PowerupManager::POWERUP_ANVIL:
-            m_sound_use = SFXManager::get()->createSoundSource("anvil");
-            break;
-
-        case PowerupManager::POWERUP_PARACHUTE:
-            m_sound_use = SFXManager::get()->createSoundSource("parachute");
-            break;
-
-        case PowerupManager::POWERUP_BUBBLEGUM:
-            m_sound_use = SFXManager::get()->createSoundSource("goo");
-            break ;
-
-        case PowerupManager::POWERUP_SWITCH:
-            m_sound_use = SFXManager::get()->createSoundSource("swap");
-            break;
-
-        case PowerupManager::POWERUP_NOTHING:
-        case PowerupManager::POWERUP_CAKE:
-        case PowerupManager::POWERUP_PLUNGER:
-        default :
-            m_sound_use = SFXManager::get()->createSoundSource("shoot");
-            break ;
-    }
-
 }  // set
 
 //-----------------------------------------------------------------------------
@@ -210,64 +104,11 @@ Material *Powerup::getIcon() const
 }   // getIcon
 
 //-----------------------------------------------------------------------------
-/** Does the sound configuration.
- */
-void Powerup::adjustSound()
-{
-    m_sound_use->setPosition(m_kart->getXYZ());
-    // in multiplayer mode, sounds are NOT positional (because we have multiple listeners)
-    // so the sounds of all AIs are constantly heard. So reduce volume of sounds.
-    if (RaceManager::get()->getNumLocalPlayers() > 1)
-    {
-        // player karts played at full volume; AI karts much dimmer
-
-        if (m_kart->getController()->isLocalPlayerController())
-        {
-            m_sound_use->setVolume( 1.0f );
-        }
-        else
-        {
-            m_sound_use->setVolume( 
-                     std::min(0.5f, 1.0f / RaceManager::get()->getNumberOfKarts()) );
-        }
-    }
-}   // adjustSound
-
-//-----------------------------------------------------------------------------
 /** Use (fire) this powerup.
  */
 void Powerup::use()
 {
-    const int ticks = World::getWorld()->getTicksSinceStart();
-    bool has_played_sound = false;
-    auto it = m_played_sound_ticks.find(ticks);
-    if (it != m_played_sound_ticks.end())
-        has_played_sound = true;
-    else
-        m_played_sound_ticks.insert(ticks);
-
     const KartProperties *kp = m_kart->getKartProperties();
-
-    // The player gets an achievement point for using a powerup
-    if (m_type != PowerupManager::POWERUP_NOTHING      &&
-        m_kart->getController()->canGetAchievements()    )
-    {
-        PlayerManager::increaseAchievement(AchievementsStatus::POWERUP_USED, 1);
-        if (RaceManager::get()->isLinearRaceMode())
-            PlayerManager::increaseAchievement(AchievementsStatus::POWERUP_USED_1RACE, 1);
-    }
-
-    // Play custom kart sound when collectible is used //TODO: what about the bubble gum?
-    if (m_type != PowerupManager::POWERUP_NOTHING &&
-        m_type != PowerupManager::POWERUP_SWATTER &&
-        m_type != PowerupManager::POWERUP_ZIPPER)
-        m_kart->playCustomSFX(SFXManager::CUSTOM_SHOOT);
-
-    // FIXME - for some collectibles, set() is never called
-    if (!has_played_sound && m_sound_use == NULL)
-    {
-        m_sound_use = SFXManager::get()->createSoundSource("shoot");
-    }
 
     m_number--;
     World *world = World::getWorld();
@@ -275,16 +116,11 @@ void Powerup::use()
     switch (m_type)
     {
     case PowerupManager::POWERUP_ZIPPER:
-        m_kart->handleZipper(NULL, true);
+        m_kart->handleZipper(NULL);
         break ;
     case PowerupManager::POWERUP_SWITCH:
         {
             im->switchItems();
-            if (!has_played_sound)
-            {
-                m_sound_use->setPosition(m_kart->getXYZ());
-                m_sound_use->play();
-            }
             break;
         }
     case PowerupManager::POWERUP_CAKE:
@@ -293,11 +129,6 @@ void Powerup::use()
     case PowerupManager::POWERUP_PLUNGER:
         if(stk_config->m_shield_restrict_weapons)
             m_kart->setShieldTime(0.0f); // make weapon usage destroy the shield
-        if (!has_played_sound)
-        {
-            Powerup::adjustSound();
-            m_sound_use->play();
-        }
         ProjectileManager::get()->newProjectile(m_kart, m_type);
         break ;
 
@@ -315,11 +146,6 @@ void Powerup::use()
 
             // E.g. ground not found in raycast.
             if(!new_item) return;
-            if (!has_played_sound)
-            {
-                Powerup::adjustSound();
-                m_sound_use->play();
-            }
         }
         else // if the kart is looking forward, use the bubblegum as a shield
         {
@@ -360,21 +186,6 @@ void Powerup::use()
                 }
             }
 
-            if (!has_played_sound)
-            {
-                if (m_sound_use != NULL)
-                {
-                    m_sound_use->deleteSFX();
-                    m_sound_use = NULL;
-                }
-                //Extraordinary. Usually sounds are set in Powerup::set()
-                m_sound_use = SFXManager::get()->createSoundSource("inflate");
-                //In this case this is a workaround, since the bubblegum item has two different sounds.
-
-                Powerup::adjustSound();
-                m_sound_use->play();
-            }
-
         }   // end of PowerupManager::POWERUP_BUBBLEGUM
         break;
 
@@ -393,19 +204,6 @@ void Powerup::use()
                                            time2Ticks(kp->getAnvilDuration()) );
                 kart->adjustSpeed(kp->getAnvilSpeedFactor() * 0.5f);
 
-                // should we position the sound at the kart that is hit,
-                // or the kart "throwing" the anvil? Ideally it should be both.
-                // Meanwhile, don't play it near AI karts since they obviously
-                // don't hear anything
-                if (!has_played_sound)
-                {
-                    if(kart->getController()->isLocalPlayerController())
-                        m_sound_use->setPosition(kart->getXYZ());
-                    else
-                        m_sound_use->setPosition(m_kart->getXYZ());
-
-                    m_sound_use->play();
-                }
                 break;
             }
         }
@@ -454,19 +252,6 @@ void Powerup::use()
                     if(kart->getController()->isLocalPlayerController())
                         player_kart = kart;
                 }
-            }
-
-            // should we position the sound at the kart that is hit,
-            // or the kart "throwing" the anvil? Ideally it should be both.
-            // Meanwhile, don't play it near AI karts since they obviously
-            // don't hear anything
-            if (!has_played_sound)
-            {
-                if(m_kart->getController()->isLocalPlayerController())
-                    m_sound_use->setPosition(m_kart->getXYZ());
-                else if(player_kart)
-                    m_sound_use->setPosition(player_kart->getXYZ());
-                m_sound_use->play();
             }
         }
         break;

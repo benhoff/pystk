@@ -20,9 +20,6 @@
 #include <cassert>
 
 #include "IrrlichtDevice.h"
-#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
-#include "SDL_clipboard.h"
-#endif
 #ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
 #include "MacOSX/OSXClipboard.h"
 #endif
@@ -60,6 +57,7 @@ void COSOperator::copyToClipboard(const wchar_t* text) const
 {
 	if (wcslen(text)==0)
 		return;
+#endif
 
 // Windows version
 #if defined(_IRR_XBOX_PLATFORM_)
@@ -85,8 +83,7 @@ void COSOperator::copyToClipboard(const wchar_t* text) const
 
 #endif
 }
-#else
-void COSOperator::copyToClipboard(const c8* text) const
+void irr::COSOperator::copyToClipboard(const c8* text) const
 {
 	if (strlen(text)==0)
 		return;
@@ -116,9 +113,6 @@ void COSOperator::copyToClipboard(const c8* text) const
 
 	OSXCopyToClipboard(text);
 	
-#elif defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
-	SDL_SetClipboardText(text);
-#endif
 }
 #endif
 
@@ -147,7 +141,6 @@ const wchar_t* COSOperator::getTextFromClipboard() const
 	return 0;
 #endif
 }
-#else
 const c8* COSOperator::getTextFromClipboard() const
 {
 #if defined(_IRR_XBOX_PLATFORM_)
@@ -169,9 +162,6 @@ const c8* COSOperator::getTextFromClipboard() const
 	
 	
 
-#elif defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
-	return SDL_GetClipboardText();
-#else
 
 	return 0;
 #endif

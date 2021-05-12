@@ -26,7 +26,6 @@
 #include "utils/cpp2011.hpp"
 
 class AbstractKart;
-class SFXBase;
 
 /**
   * \ingroup items
@@ -190,9 +189,6 @@ private:
      *  used to keep track of the state of this ball. */
     bool         m_aiming_at_target;
 
-    /** A 'ping' sound effect to be played when the ball hits the ground. */
-    SFXBase     *m_ping_sfx;
-
     bool m_restoring_state;
 
     void         computeTarget();
@@ -208,7 +204,6 @@ private:
     float        getTunnelHeight(const Vec3 &next_xyz, 
                                      const float vertical_offset) const;
     bool         checkTunneling();
-    void removePingSFX();
 
 public:
                  RubberBall  (AbstractKart* kart);
@@ -221,11 +216,6 @@ public:
     /** This object does not create an explosion, all affects on
      *  karts are handled by this hit() function. */
     //virtual HitEffect *getHitEffect() const {return NULL; }
-    // ------------------------------------------------------------------------
-    virtual BareNetworkString* saveState(std::vector<std::string>* ru)
-        OVERRIDE;
-    // ------------------------------------------------------------------------
-    virtual void restoreState(BareNetworkString *buffer, int count) OVERRIDE;
     // ------------------------------------------------------------------------
     virtual void onFireFlyable() OVERRIDE;
 

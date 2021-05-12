@@ -32,10 +32,8 @@
 
 namespace StringUtils
 {
-    void unitTesting();
     int versionToInt(const std::string &s);
 
-    bool hasSuffix(const std::string& lhs, const std::string &rhs);
     bool startsWith(const std::string& str, const std::string& prefix);
 
     /** Return the filename part of a path */
@@ -52,7 +50,6 @@ namespace StringUtils
                              bool display_minutes_if_zero = true, bool display_hours = false);
     irr::core::stringw loadingDots(float interval = 0.5f, int max_dots = 3);
     irr::core::stringw loadingDots(const irr::core::stringw& s);
-    std::string                     toUpperCase(const std::string&);
     std::string                     toLowerCase(const std::string&);
     std::vector<std::string>        split(const std::string& s, char c,
                                           bool keepSplitChar=false);
@@ -278,28 +275,12 @@ namespace StringUtils
     // ------------------------------------------------------------------------
     irr::core::stringw utf8ToWide(const char* input);
     irr::core::stringw utf8ToWide(const std::string &input);
-    std::u32string utf8ToUtf32(const std::string &input);
     std::string wideToUtf8(const wchar_t* input);
     std::string wideToUtf8(const irr::core::stringw& input);
-    std::string utf32ToUtf8(const std::u32string& input);
-    std::string findAndReplace(const std::string& source, const std::string& find, const std::string& replace);
-    std::string removeWhitespaces(const std::string& input);
-    irr::core::stringw getReadableFileSize(uint64_t n);
-    void breakText(const std::wstring& input, std::vector<std::wstring> &output,
-                   unsigned int max_width, irr::gui::IGUIFont* font, bool right_to_left=false);
     bool breakable (wchar_t c);
-    bool partOfLongUnicodeChar (wchar_t c);
     irr::core::stringw utf32ToWide(const std::u32string& input);
     std::u32string wideToUtf32(const irr::core::stringw& input);
 
-    std::string getUserAgentString();
-    /**
-     * Returns the hostname part of an url (if any)
-     *
-     * Example https://online.supertuxkart.net/
-     *
-     */
-    std::string getHostNameFromURL(const std::string& url);
     // ------------------------------------------------------------------------
     std::pair<std::string, std::string> extractVersionOS(
                                                 const std::string& user_agent);

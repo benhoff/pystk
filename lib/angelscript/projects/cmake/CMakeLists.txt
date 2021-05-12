@@ -1,15 +1,7 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.0)
 set(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS TRUE)
 cmake_policy(SET CMP0003 NEW)
 
-# Fix llvm mingw crashes
-if (MINGW AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_SIZEOF_VOID_P EQUAL 4)
-  ADD_DEFINITIONS(-DAS_MAX_PORTABILITY)
-endif()
-
-if(NOT (CMAKE_MAJOR_VERSION VERSION_LESS 3))
-  cmake_policy(SET CMP0048 OLD)
-endif()
 
 project(angelscript)
 
@@ -128,7 +120,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../include)
 
 if(MSVC)
     set(CMAKE_DEBUG_POSTFIX "d")
-    add_definitions(-D_CRT_SECURE_NO_WARNINGS)    
+    add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif()
 
 add_definitions(-DANGELSCRIPT_EXPORT -D_LIB)

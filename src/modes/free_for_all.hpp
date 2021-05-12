@@ -19,11 +19,9 @@
 #define FREE_FOR_ALL_HPP
 
 #include "modes/world_with_rank.hpp"
-#include "states_screens/race_gui_base.hpp"
+#include <SColor.h>
 
 #include <vector>
-
-class NetworkString;
 
 class FreeForAll : public WorldWithRank
 {
@@ -50,9 +48,6 @@ public:
     // ------------------------------------------------------------------------
     virtual void reset(bool restart=false) OVERRIDE;
     // ------------------------------------------------------------------------
-    virtual void getKartsDisplayInfo(
-                 std::vector<RaceGUIBase::KartIconDisplayInfo> *info) OVERRIDE;
-    // ------------------------------------------------------------------------
     virtual bool raceHasLaps() OVERRIDE                       { return false; }
     // ------------------------------------------------------------------------
     virtual const std::string& getIdent() const OVERRIDE;
@@ -64,8 +59,6 @@ public:
     virtual void countdownReachedZero() OVERRIDE;
     // ------------------------------------------------------------------------
     virtual void terminateRace() OVERRIDE;
-    // ------------------------------------------------------------------------
-    void setKartScoreFromServer(NetworkString& ns);
     // ------------------------------------------------------------------------
     int getKartScore(int kart_id) const        { return m_scores.at(kart_id); }
     // ------------------------------------------------------------------------
@@ -79,11 +72,6 @@ public:
         WorldWithRank::addReservedKart(kart_id);
         m_scores.at(kart_id) = 0;
     }
-    // ------------------------------------------------------------------------
-    virtual void saveCompleteState(BareNetworkString* bns,
-                                   STKPeer* peer) OVERRIDE;
-    // ------------------------------------------------------------------------
-    virtual void restoreCompleteState(const BareNetworkString& b) OVERRIDE;
 };   // FreeForAll
 
 

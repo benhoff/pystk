@@ -19,24 +19,33 @@
 
 #include "items/item.hpp"
 
+#include "config/stk_config.hpp"
 #include "graphics/irr_driver.hpp"
 #include "graphics/lod_node.hpp"
+#include "graphics/render_info.hpp"
 #include "graphics/sp/sp_mesh.hpp"
 #include "graphics/sp/sp_mesh_node.hpp"
-#include "guiengine/engine.hpp"
 #include "items/item_manager.hpp"
 #include "karts/abstract_kart.hpp"
 #include "modes/world.hpp"
-#include "network/network_string.hpp"
-#include "network/rewind_manager.hpp"
+
 #include "tracks/arena_graph.hpp"
 #include "tracks/drive_graph.hpp"
 #include "tracks/drive_node.hpp"
 #include "utils/constants.hpp"
 #include "utils/string_utils.hpp"
+#include "utils/objecttype.h"
 
 #include <IMeshSceneNode.h>
 #include <ISceneManager.h>
+
+static ObjectType ot(ItemState::ItemType type) {
+    if (type == ItemState::ITEM_BANANA || type == ItemState::ITEM_BUBBLEGUM || type == ItemState::ITEM_BUBBLEGUM_NOLOK)
+        return OT_BOMB;
+    if (type == ItemState::ITEM_NITRO_BIG || type == ItemState::ITEM_NITRO_SMALL)
+        return OT_NITRO;
+    return OT_PICKUP;
+}
 
 
 // ----------------------------------------------------------------------------
@@ -57,25 +66,6 @@ ItemState::ItemState(ItemType type, const AbstractKart *owner, int id)
     else
         setDeactivatedTicks(0);
 }   // ItemState(ItemType)
-
-//-----------------------------------------------------------------------------
-/** Constructor to restore item state at current ticks in client for live join
- */
-ItemState::ItemState(const BareNetworkString& buffer)
-{
-    m_type = (ItemType)buffer.getUInt8();
-    m_original_type = (ItemType)buffer.getUInt8();
-    m_ticks_till_return = buffer.getUInt32();
-    m_item_id = buffer.getUInt32();
-    m_deactive_ticks = buffer.getUInt32();
-    m_used_up_counter = buffer.getUInt32();
-    m_xyz = buffer.getVec3();
-    m_original_rotation = buffer.getQuat();
-    m_previous_owner = NULL;
-    int8_t kart_id = buffer.getUInt8();
-    if (kart_id != -1)
-        m_previous_owner = World::getWorld()->getKart(kart_id);
-}   // ItemState(const BareNetworkString& buffer)
 
 // ------------------------------------------------------------------------
 /** Sets the disappear counter depending on type.  */
@@ -166,19 +156,6 @@ Item::ItemType ItemState::getGrahpicalType() const
         ITEM_BUBBLEGUM_NOLOK : getType();
 }   // getGrahpicalType
 
-//-----------------------------------------------------------------------------
-/** Save item state at current ticks in server for live join
- */
-void ItemState::saveCompleteState(BareNetworkString* buffer) const
-{
-    buffer->addUInt8((uint8_t)m_type).addUInt8((uint8_t)m_original_type)
-        .addUInt32(m_ticks_till_return).addUInt32(m_item_id)
-        .addUInt32(m_deactive_ticks).addUInt32(m_used_up_counter)
-        .add(m_xyz).add(m_original_rotation)
-        .addUInt8(m_previous_owner ?
-            (int8_t)m_previous_owner->getWorldKartId() : (int8_t)-1);
-}   // saveCompleteState
-
 // ============================================================================
 /** Constructor for an item.
  *  \param type Type of the item.
@@ -200,30 +177,29 @@ Item::Item(ItemType type, const Vec3& xyz, const Vec3& normal,
     m_distance_2        = 1.2f;
     initItem(type, xyz, normal);
     m_graphical_type    = getGrahpicalType();
+    ri_ = std::make_shared<RenderInfo>(0.f, false, makeObjectId(ot(getType()), getItemId()+1));
 
-    m_node = NULL;
-    if (mesh && !GUIEngine::isNoGraphics())
+    LODNode* lodnode =
+        new LODNode("item", irr_driver->getSceneManager()->getRootSceneNode(),
+                    irr_driver->getSceneManager());
+    scene::ISceneNode* meshnode =
+        irr_driver->addMesh(mesh, StringUtils::insertValues("item_%i", (int)type), NULL, ri_);
+
+    if (lowres_mesh != NULL)
     {
         LODNode* lodnode =
             new LODNode("item", irr_driver->getSceneManager()->getRootSceneNode(),
             irr_driver->getSceneManager());
         scene::ISceneNode* meshnode =
-            irr_driver->addMesh(mesh, StringUtils::insertValues("item_%i", (int)type));
-
-        if (lowres_mesh != NULL)
-        {
-            lodnode->add(35, meshnode, true);
-            scene::ISceneNode* meshnode =
-                irr_driver->addMesh(lowres_mesh,
-                StringUtils::insertValues("item_lo_%i", (int)type));
-            lodnode->add(100, meshnode, true);
-        }
-        else
-        {
-            lodnode->add(100, meshnode, true);
-        }
-        m_node = lodnode;
+            irr_driver->addMesh(lowres_mesh,
+                                StringUtils::insertValues("item_lo_%i", (int)type), NULL, ri_);
+        lodnode->add(100, meshnode, true);
     }
+    else
+    {
+        lodnode->add(100, meshnode, true);
+    }
+    m_node = lodnode;
     setType(type);
     handleNewMesh(getGrahpicalType());
 
@@ -241,6 +217,14 @@ Item::Item(ItemType type, const Vec3& xyz, const Vec3& normal,
     m_node->setRotation(hpr.toIrrHPR());
     m_node->grab();
 }   // Item(type, xyz, normal, mesh, lowres_mesh)
+
+void Item::setItemId(unsigned int n) {
+    ItemState::setItemId(n);
+    ri_->setObjectId(makeObjectId(ot(getType()), ItemState::getItemId()+1));
+}
+uint32_t Item::getObjectId() const {
+    return ri_->objectId();
+}
 
 //-----------------------------------------------------------------------------
 /** Initialises the item. Note that m_distance_2 must be defined before calling
@@ -360,6 +344,7 @@ void Item::handleNewMesh(ItemType type)
     Vec3 hpr;
     hpr.setHPR(getOriginalRotation());
     m_node->setRotation(hpr.toIrrHPR());
+    ri_->setObjectId(makeObjectId(ot(getType()), ItemState::getItemId()+1));
 #endif
 }   // handleNewMesh
 

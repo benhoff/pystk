@@ -41,6 +41,8 @@ using namespace irr;
 #include "utils/aligned_array.hpp"
 #include "utils/log.hpp"
 #include "utils/vec3.hpp"
+#include "utils/no_copy.hpp"
+#include "utils/ptr_vector.hpp"
 #include "utils/stk_process.hpp"
 
 class AbstractKart;
@@ -59,39 +61,6 @@ class TrackObject;
 class TrackObjectManager;
 class TriangleMesh;
 class XMLNode;
-
-const int HEIGHT_MAP_RESOLUTION = 256;
-
-// TODO: eventually remove this and fully replace with scripting
-struct OverworldChallenge
-{
-public:
-    core::vector3df m_position;
-    std::string m_challenge_id;
-
-    OverworldChallenge(core::vector3df position, std::string challenge_id)
-    {
-        m_position = position;
-        m_challenge_id = challenge_id;
-    }
-};
-
-
-struct Subtitle
-{
-    int m_from, m_to;
-    core::stringw m_text;
-
-    Subtitle(int from, int to, core::stringw text)
-    {
-        m_from = from;
-        m_to = to;
-        m_text = text;
-    }
-    int getFrom() const { return m_from; }
-    int getTo()   const { return m_to;   }
-    const core::stringw& getText() const { return m_text; }
-};
 
 /**
   * \ingroup tracks
@@ -117,12 +86,6 @@ private:
     std::string              m_ident;
     std::string              m_screenshot;
     bool                     m_is_day;
-    std::vector<MusicInformation*> m_music;
-
-    /** Will only be used on overworld */
-    std::vector<OverworldChallenge> m_challenges;
-
-    std::vector<Subtitle> m_subtitles;
 
     /** Start transforms of karts (either the default, or the ones taken
      *  from the scene file). */
@@ -285,7 +248,6 @@ private:
 
     /** Use a special built-in wheather */
     bool                     m_weather_lightning;
-    std::string              m_weather_sound;
 
     /** A simple class to keep information about a track mode. */
     class TrackMode
@@ -331,9 +293,6 @@ private:
     /** True if the track uses fog. */
     bool                m_use_fog;
 
-    /** Can be set to force fog off (e.g. for rendering minimap). */
-    bool                m_force_disable_fog;
-
     /** True if this track supports using smoothed normals. */
     bool                m_smooth_normals;
 
@@ -351,13 +310,11 @@ private:
     video::SColor       m_sun_specular_color;
     video::SColor       m_sun_diffuse_color;
     video::SColor       m_fog_color;
+    CheckManager*           m_check_manager;
+    std::shared_ptr<ItemManager> m_item_manager;
 
     /** The render target for the mini map, which is displayed in the race gui. */
     RenderTarget           *m_render_target;
-    CheckManager*           m_check_manager;
-    std::shared_ptr<ItemManager> m_item_manager;
-    float                   m_minimap_x_scale;
-    float                   m_minimap_y_scale;
 
     bool m_clouds;
 
@@ -373,8 +330,6 @@ private:
 
     float m_displacement_speed;
     int m_physical_object_uid;
-
-    bool m_minimap_invert_x_z;
 
     /** The levels for color correction
      * m_color_inlevel(black, gamma, white)
@@ -399,10 +354,7 @@ private:
     void loadArenaGraph(const XMLNode &node);
     btQuaternion getArenaStartRotation(const Vec3& xyz, float heading);
     bool loadMainTrack(const XMLNode &node);
-    void loadMinimap();
     void createWater(const XMLNode &node);
-    void getMusicInformation(std::vector<std::string>&  filenames,
-                             std::vector<MusicInformation*>& m_music   );
     void loadCurves(const XMLNode &node);
     void handleSky(const XMLNode &root, const std::string &filename);
     void freeCachedMeshVertexBuffer();
@@ -468,9 +420,6 @@ public:
                                         unsigned int mode_id=0);
     bool findGround(AbstractKart *kart);
 
-    std::vector< std::vector<float> > buildHeightMap();
-    void               drawMiniMap(const core::rect<s32>& dest_rect) const;
-    void               updateMiniMapScale();
     // ------------------------------------------------------------------------
     /** Returns true if this track has an arena mode. */
     bool isArena() const { return m_is_arena; }
@@ -499,9 +448,6 @@ public:
     // ------------------------------------------------------------------------
     bool               isSoccer             () const { return m_is_soccer; }
     // ------------------------------------------------------------------------
-    void               addMusic          (MusicInformation* mi)
-                                                  {m_music.push_back(mi);     }
-    // ------------------------------------------------------------------------
     float              getGravity        () const {return m_gravity;          }
     // ------------------------------------------------------------------------
     /** Returns the version of the .track file. */
@@ -529,8 +475,6 @@ public:
     /** Returns if the track is during day time */
     const bool getIsDuringDay () const {return m_is_day;               }
     // ------------------------------------------------------------------------
-    /** Returns if invert minimap */
-    const bool getMinimapInvert () const {return m_minimap_invert_x_z;               }
     // ------------------------------------------------------------------------
     /** Returns the start coordinates for a kart with a given index.
      *  \param index Index of kart ranging from 0 to kart_num-1. */
@@ -560,23 +504,12 @@ public:
      */
     float              getAngle(int n) const;
     // ------------------------------------------------------------------------
-    /** Returns the 2d coordinates of a point when drawn on the mini map
-     *  texture.
-     *  \param xyz Coordinates of the point to map.
-     *  \param draw_at The coordinates in pixel on the mini map of the point,
-     *         only the first two coordinates will be used.
-     */
-    void               mapPoint2MiniMap(const Vec3 &xyz, Vec3 *draw_at) const;
-    // ------------------------------------------------------------------------
     /** Returns the full path of a given file inside this track directory. */
     std::string        getTrackFile(const std::string &s) const
                                 { return m_root+"/"+s; }
     // ------------------------------------------------------------------------
     /** Returns the number of modes available for this track. */
     unsigned int       getNumberOfModes() const { return (unsigned int) m_all_modes.size();  }
-    // ------------------------------------------------------------------------
-    /** Returns number of completed challenges. */
-    unsigned int getNumOfCompletedChallenges();
     // ------------------------------------------------------------------------
     /** Returns the name of the i-th. mode. */
     const std::string &getModeName(unsigned int i) const
@@ -606,18 +539,13 @@ public:
     // ------------------------------------------------------------------------
     bool getWeatherLightning() {return m_weather_lightning;}
     // ------------------------------------------------------------------------
-    const std::string& getWeatherSound() {return m_weather_sound;}
-    // ------------------------------------------------------------------------
     ParticleKind* getSkyParticles         () { return m_sky_particles; }
-    // ------------------------------------------------------------------------
-    /** Override track fog value to force disabled */
-    void forceFogDisabled(bool v) { m_force_disable_fog = v; }
     //-------------------------------------------------------------------------
     /** Returns if fog is currently enabled. It can be disabled per track, or
      *  temporary be disabled (e.g. for rendering mini map). */
     bool isFogEnabled() const
     {
-        return !m_force_disable_fog && m_use_fog;
+        return m_use_fog;
     }   // isFogEnabled
 
     // ------------------------------------------------------------------------
@@ -661,14 +589,6 @@ public:
     {
         return m_track_object_manager;
     }   // getTrackObjectManager
-
-    // ------------------------------------------------------------------------
-    /** Get list of challenges placed on that world. Works only for overworld. */
-    const std::vector<OverworldChallenge>& getChallengeList() const
-        { return m_challenges; }
-
-    // ------------------------------------------------------------------------
-    const std::vector<Subtitle>& getSubtitles() const { return m_subtitles; }
 
     // ------------------------------------------------------------------------
     bool hasClouds() const { return m_clouds; }
@@ -728,9 +648,9 @@ public:
     // ------------------------------------------------------------------------
     bool isAddon() const                                 { return m_is_addon; }
     // ------------------------------------------------------------------------
-    void convertTrackToBullet(scene::ISceneNode *node);
-    // ------------------------------------------------------------------------
     CheckManager* getCheckManager() const           { return m_check_manager; }
+    // ------------------------------------------------------------------------
+    void convertTrackToBullet(scene::ISceneNode *node);
     // ------------------------------------------------------------------------
     ItemManager* getItemManager() const        { return m_item_manager.get(); }
 };   // class Track

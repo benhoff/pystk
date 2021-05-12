@@ -18,7 +18,6 @@
 
 #include "utils/command_line.hpp"
 
-#include "config/user_config.hpp"
 #include "utils/log.hpp"
 #include "utils/string_utils.hpp"
 
@@ -38,7 +37,7 @@ void CommandLine::init(unsigned int argc, char *argv[])
 {
 #if defined(WIN32)
     wchar_t path[MAX_PATH] = {0};
-    GetModuleFileName(NULL, path, MAX_PATH);
+    GetModuleFileNameW(NULL, path, MAX_PATH);
     m_exec_name = StringUtils::wideToUtf8(path);
 #else
     if (argc > 0)
@@ -55,13 +54,6 @@ void CommandLine::init(unsigned int argc, char *argv[])
 // ----------------------------------------------------------------------------
 void CommandLine::addArgsFromUserConfig()
 {
-    std::vector<std::string> config_args;
-    config_args = StringUtils::split(UserConfigParams::m_commandline, ' ');
-    
-    for (std::string config_arg : config_args)
-    {
-        m_argv.push_back(config_arg);
-    }
 }
 
 // ----------------------------------------------------------------------------

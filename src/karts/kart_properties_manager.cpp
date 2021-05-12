@@ -19,13 +19,8 @@
 
 #include "karts/kart_properties_manager.hpp"
 
-#include "challenges/unlock_manager.hpp"
-#include "config/player_manager.hpp"
-#include "config/player_profile.hpp"
 #include "config/stk_config.hpp"
-#include "config/user_config.hpp"
 #include "graphics/irr_driver.hpp"
-#include "guiengine/engine.hpp"
 #include "io/file_manager.hpp"
 #include "karts/kart_properties.hpp"
 #include "karts/xml_characteristic.hpp"
@@ -37,6 +32,7 @@
 #include <stdio.h>
 #include <stdexcept>
 #include <iostream>
+#include <random>
 
 KartPropertiesManager *kart_properties_manager=0;
 
@@ -168,15 +164,7 @@ void KartPropertiesManager::loadAllKarts(bool loading_icon)
         for(std::set<std::string>::const_iterator subdir=result.begin();
             subdir!=result.end(); subdir++)
         {
-            const bool loaded = loadKart(*dir+*subdir);
-
-            if (loaded && loading_icon)
-            {
-                GUIEngine::addLoadingIcon(irr_driver->getTexture(
-                    m_karts_properties[m_karts_properties.size()-1]
-                            .getAbsoluteIconFile()              )
-                                          );
-            }
+            loadKart(*dir+*subdir);
         }   // for all files in the currently handled directory
     }   // for i
 }   // loadAllKarts
@@ -461,9 +449,6 @@ bool KartPropertiesManager::kartAvailable(int kartid)
     {
         if ( kartid == *it) return false;
     }
-    const KartProperties *kartprop = getKartById(kartid);
-    if( PlayerManager::getCurrentPlayer()->isLocked(kartprop->getIdent()) )
-        return false;
     return true;
 }   // kartAvailable
 
@@ -564,8 +549,7 @@ void KartPropertiesManager::getRandomKartList(int count,
         if (count > 0 && random_kart_queue.size() == 0)
         {
             random_kart_queue.clear();
-            std::vector<int> karts_in_group =
-                getKartsInGroup(UserConfigParams::m_last_used_kart_group);
+            std::vector<int> karts_in_group = getKartsInGroup("all");
 
             assert(karts_in_group.size() > 0);
 
@@ -574,8 +558,7 @@ void KartPropertiesManager::getRandomKartList(int count,
             {
                 const KartProperties &kp=m_karts_properties[karts_in_group[i]];
                 if (!used[karts_in_group[i]]                 &&
-                    m_kart_available[karts_in_group[i]]      &&
-                    !PlayerManager::getCurrentPlayer()->isLocked(kp.getIdent())   )
+                    m_kart_available[karts_in_group[i]])
                 {
                     random_kart_queue.push_back(kp.getIdent());
                 }
@@ -594,8 +577,7 @@ void KartPropertiesManager::getRandomKartList(int count,
 
             assert(random_kart_queue.size() > 0);
 
-            std::random_shuffle(random_kart_queue.begin(),
-                                random_kart_queue.end()   );
+            std::shuffle(random_kart_queue.begin(), random_kart_queue.end(), std::mt19937(0));
         }
 
         while (count > 0 && random_kart_queue.size() > 0)

@@ -43,7 +43,7 @@
 //! different library versions without having to change the sources.
 //! Example: NO_IRR_COMPILE_WITH_X11_ would disable X11
 
-
+#define NO_IRR_COMPILE_WITH_SDL_DEVICE_
 //! Uncomment this line to compile with the SDL device
 //#define _IRR_COMPILE_WITH_SDL_DEVICE_
 // Always use SDL2 in STK unless server only compilation
@@ -79,6 +79,8 @@
 #define MACOSX // legacy support
 #endif
 #define _IRR_OSX_PLATFORM_ // we only support OSX on these systems
+#define _IRR_COMPILE_WITH_OFF_SCREEN_OSX_DEVICE_
+#define GL_SILENCE_DEPRECATION
 
 #if defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) || defined(__IPHONE_OS_VERSION_MIN_REQUIRED)
 #define _IRR_IOS_PLATFORM_
@@ -123,6 +125,12 @@
 #if defined(_IRR_COMPILE_WITH_OGLES2_) && !defined(_IRR_COMPILE_WITH_IOS_DEVICE_) && !defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
 #define _IRR_COMPILE_WITH_EGL_
 #endif
+
+#ifndef NO_IRR_COMPILE_WITH_OFF_SCREEN_DEVICE_
+#define _IRR_COMPILE_WITH_OFF_SCREEN_DEVICE_
+#define _IRR_COMPILE_WITH_EGL_
+#endif
+
 
 //! Define _IRR_COMPILE_WITH_JOYSTICK_SUPPORT_ if you want joystick events.
 #undef _IRR_COMPILE_WITH_JOYSTICK_EVENTS_

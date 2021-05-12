@@ -34,16 +34,13 @@
 
 #include "graphics/weather.hpp"
 #include "modes/world_status.hpp"
-#include "race/highscores.hpp"
-#include "states_screens/race_gui_base.hpp"
-#include "states_screens/state_manager.hpp"
+#include "race/race_manager.hpp"
 #include "utils/random_generator.hpp"
 #include "utils/stk_process.hpp"
 
 #include "LinearMath/btTransform.h"
 
 class AbstractKart;
-class BareNetworkString;
 class btRigidBody;
 class Controller;
 class ItemState;
@@ -113,7 +110,6 @@ protected:
 
     /** The list of all karts. */
     KartList                  m_karts;
-    RandomGenerator           m_random;
 
     AbstractKart* m_fastest_kart;
     /** Number of eliminated karts. */
@@ -132,47 +128,16 @@ protected:
     /** Whether highscores should be used for this kind of race.
      *  True by default, change to false in a child class to disable.
     */
-    bool        m_use_highscores;
-
-    void  updateHighscores  (int* best_highscore_rank);
     void  resetAllKarts     ();
-    Controller*
-          loadAIController  (AbstractKart *kart);
 
     virtual std::shared_ptr<AbstractKart> createKart
         (const std::string &kart_ident, int index, int local_player_id,
         int global_player_id, RaceManager::KartType type,
         HandicapLevel handicap);
 
-    /** Pointer to the race GUI. The race GUI is handled by world. */
-    RaceGUIBase *m_race_gui;
-
-    /** The actual race gui needs to be saved when the race result gui is
-        displayed since it is still needed in case of a restart, and it
-        can't simply be created again (since it assumes that it can render
-        to texture without having any scene nodes, but in case of a restart
-        there are scene nodes). */
-    RaceGUIBase *m_saved_race_gui;
-
-    /** Pausing/unpausing are not done immediately, but at next udpdate. The
-     *  use of this is when switching between screens : if we leave a screen
-     *  that paused the game, only to go to another screen that pauses back
-     *  the game, this mechanism prevents the game from moving on between
-     *  the switch. */
-    bool m_schedule_pause;
-
-    /** Pausing/unpausing are not done immediately, but at next udpdate. The
-     *  use of this is when switching between screens : if we leave a screen
-     *  that paused the game, only to go to another screen that pauses back
-     *  the game, this mechanism prevents the game from moving on between the
-     *  switch. */
-    bool m_schedule_unpause;
-
     bool m_schedule_exit_race;
 
     bool m_schedule_tutorial;
-
-    Phase m_scheduled_pause_phase;
 
     /** Set when the world needs to be deleted but you can't do it immediately
      * because you are e.g. within World::update()
@@ -188,7 +153,6 @@ protected:
     /** Returns true if the race is over. Must be defined by all modes. */
     virtual bool  isRaceOver() = 0;
     virtual void  update(int ticks) OVERRIDE;
-    virtual void  createRaceGUI();
             void  updateTrack(int ticks);
     // ------------------------------------------------------------------------
     /** Used for AI karts that are still racing when all player kart finished.
@@ -200,8 +164,6 @@ protected:
      */
     virtual float estimateFinishTimeForKart(AbstractKart* kart)
                                         {return getTime(); }
-    void updateAchievementDataEndRace();
-    void updateAchievementModeCounters(bool start);
 
 public:
                     World();
@@ -267,20 +229,14 @@ public:
         assert(false); return -1; // remove compiler warning
     }   // getFinishedLapsOfKart
     // ------------------------------------------------------------------------
-    /** Called by the code that draws the list of karts on the race GUI
-      * to know what needs to be drawn in the current mode. */
-    virtual void getKartsDisplayInfo(
-                       std::vector<RaceGUIBase::KartIconDisplayInfo> *info)= 0;
-    // ------------------------------------------------------------------------
 
     // Virtual functions
     // =================
     virtual void    init();
+    virtual void    updateGraphicsMinimal(float dt);
     virtual void    updateGraphics(float dt);
     virtual void    terminateRace() OVERRIDE;
     virtual void    reset(bool restart=false) OVERRIDE;
-    virtual void    pause(Phase phase) OVERRIDE;
-    virtual void    unpause() OVERRIDE;
     virtual void    getDefaultCollectibles(int *collectible_type,
                                            int *amount );
     // ------------------------------------------------------------------------
@@ -314,9 +270,6 @@ public:
 
     // Other functions
     // ===============
-    Highscores     *getHighscores() const;
-    void            schedulePause(Phase phase);
-    void            scheduleUnpause();
     void            scheduleExitRace() { m_schedule_exit_race = true; }
     void            scheduleTutorial();
     void            updateWorld(int ticks);
@@ -326,9 +279,6 @@ public:
     AbstractKart*   getLocalPlayerKart(unsigned int n) const;
     virtual const btTransform &getStartTransform(int index);
     void moveKartTo(AbstractKart* kart, const btTransform &t);
-    // ------------------------------------------------------------------------
-    /** Returns a pointer to the race gui. */
-    RaceGUIBase    *getRaceGUI() const { return m_race_gui;}
     // ------------------------------------------------------------------------
     /** Returns the number of karts in the race. */
     unsigned int    getNumKarts() const { return (unsigned int) m_karts.size(); }
@@ -360,18 +310,6 @@ public:
         if (m_eliminated_karts > 0)
             m_eliminated_karts--;
     }
-    // ------------------------------------------------------------------------
-    virtual void saveCompleteState(BareNetworkString* bns, STKPeer* peer) {}
-    // ------------------------------------------------------------------------
-    virtual void restoreCompleteState(const BareNetworkString& buffer) {}
-    // ------------------------------------------------------------------------
-    /** The code that draws the timer should call this first to know
-     *  whether the game mode wants a timer drawn. */
-    virtual bool shouldDrawTimer() const
-                    { return isActiveRacePhase() && getClockMode() != CLOCK_NONE; }
-    // ------------------------------------------------------------------------
-    /** \return whether this world can generate/have highscores */
-    bool useHighScores() const { return m_use_highscores; }
     // ------------------------------------------------------------------------
     /** Override if you want to know when a kart presses fire */
     virtual void onFirePressed(Controller* who) {}
@@ -413,6 +351,8 @@ public:
     }
     // ------------------------------------------------------------------------
     virtual bool isGoalPhase() const { return false; }
+    Controller*
+          loadAIController  (AbstractKart *kart);
 };   // World
 
 #endif

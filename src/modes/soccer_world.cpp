@@ -17,9 +17,6 @@
 
 #include "modes/soccer_world.hpp"
 
-#include "main_loop.hpp"
-#include "audio/music_manager.hpp"
-#include "audio/sfx_base.hpp"
 #include "config/user_config.hpp"
 #include "io/file_manager.hpp"
 #include "graphics/irr_driver.hpp"
@@ -27,14 +24,7 @@
 #include "karts/kart_model.hpp"
 #include "karts/kart_properties.hpp"
 #include "karts/controller/local_player_controller.hpp"
-#include "karts/controller/network_player_controller.hpp"
-#include "network/network_config.hpp"
-#include "network/network_string.hpp"
-#include "network/protocols/game_events_protocol.hpp"
-#include "network/stk_host.hpp"
-#include "network/stk_peer.hpp"
 #include "physics/physics.hpp"
-#include "states_screens/race_gui_base.hpp"
 #include "tracks/check_goal.hpp"
 #include "tracks/check_manager.hpp"
 #include "tracks/graph.hpp"
@@ -43,7 +33,6 @@
 #include "tracks/track_object_manager.hpp"
 #include "tracks/track_sector.hpp"
 #include "utils/constants.hpp"
-#include "utils/translation.hpp"
 #include "utils/string_utils.hpp"
 
 #include <IMeshSceneNode.h>
@@ -248,7 +237,6 @@ SoccerWorld::SoccerWorld() : WorldWithRank()
     }
 
     m_frame_count = 0;
-    m_use_highscores = false;
     m_red_ai = 0;
     m_blue_ai = 0;
     m_ball_track_sector = NULL;
@@ -260,7 +248,6 @@ SoccerWorld::SoccerWorld() : WorldWithRank()
  */
 SoccerWorld::~SoccerWorld()
 {
-    m_goal_sound->deleteSFX();
 
     delete m_ball_track_sector;
     m_ball_track_sector = NULL;
@@ -280,7 +267,6 @@ void SoccerWorld::init()
     m_ball         = NULL;
     m_ball_body    = NULL;
     m_goal_target  = RaceManager::get()->getMaxGoal();
-    m_goal_sound   = SFXManager::get()->createSoundSource("goal_scored");
 
     Track *track = Track::getCurrentTrack();
     if (track->hasNavMesh())
@@ -335,11 +321,6 @@ void SoccerWorld::reset(bool restart)
     m_ball_invalid_timer = 0;
     m_goal_transforms.clear();
     m_goal_transforms.resize(m_karts.size());
-    if (m_goal_sound != NULL &&
-        m_goal_sound->getStatus() == SFXBase::SFX_PLAYING)
-    {
-        m_goal_sound->stop();
-    }
 
     if (Track::getCurrentTrack()->hasNavMesh())
     {
@@ -368,8 +349,6 @@ void SoccerWorld::reset(bool restart)
     }
 
     m_team_icon_draw_id.resize(getNumKarts());
-    if (!Track::getCurrentTrack()->getMinimapInvert())
-        std::swap(red_id, blue_id);
     int pos = 0;
     for (int id : red_id)
         m_team_icon_draw_id[pos++] = id;
@@ -416,8 +395,6 @@ void SoccerWorld::update(int ticks)
     if (Track::getCurrentTrack()->hasNavMesh())
     {
         updateSectorForKarts();
-        if (!NetworkConfig::get()->isNetworking())
-            updateAIData();
     }
 
     WorldWithRank::update(ticks);
@@ -475,14 +452,11 @@ void SoccerWorld::update(int ticks)
 //-----------------------------------------------------------------------------
 void SoccerWorld::onCheckGoalTriggered(bool first_goal)
 {
-    if (isRaceOver() || isStartPhase() ||
-        (NetworkConfig::get()->isNetworking() &&
-        NetworkConfig::get()->isClient()))
+    if (isRaceOver())
         return;
 
     m_ticks_back_to_own_goal = getTicksSinceStart() +
         stk_config->time2Ticks(3.0f);
-    m_goal_sound->play();
     m_ball->reset();
     m_ball->setEnabled(false);
     if (m_ball_hitter != -1)
@@ -503,8 +477,6 @@ void SoccerWorld::onCheckGoalTriggered(bool first_goal)
         sd.m_handicap_level = getKart(m_ball_hitter)->getHandicap();
         if (RaceManager::get()->getKartGlobalPlayerId(m_ball_hitter) > -1)
         {
-            sd.m_country_code =
-                RaceManager::get()->getKartInfo(m_ball_hitter).getCountryCode();
         }
         if (sd.m_correct_goal)
         {
@@ -521,15 +493,9 @@ void SoccerWorld::onCheckGoalTriggered(bool first_goal)
         // show a message once a goal is made
         core::stringw msg;
         if (sd.m_correct_goal)
-            msg = _("%s scored a goal!", sd.m_player);
+            msg = "%s scored a goal!", sd.m_player;
         else
-            msg = _("Oops, %s made an own goal!", sd.m_player);
-        if (m_race_gui)
-        {
-            m_race_gui->addMessage(msg, NULL, 3.0f,
-                video::SColor(255, 255, 0, 255), /*important*/true,
-                /*big_font*/false, /*outline*/true);
-        }
+            msg = "Oops, %s made an own goal!", sd.m_player;
 #endif
 
         if (first_goal)
@@ -554,37 +520,6 @@ void SoccerWorld::onCheckGoalTriggered(bool first_goal)
                 sd.m_time = getTime();
             m_blue_scorers.push_back(sd);
         }
-        if (NetworkConfig::get()->isNetworking() &&
-            NetworkConfig::get()->isServer())
-        {
-            NetworkString p(PROTOCOL_GAME_EVENTS);
-            p.setSynchronous(true);
-            p.addUInt8(GameEventsProtocol::GE_PLAYER_GOAL)
-                .addUInt8((uint8_t)sd.m_id).addUInt8(sd.m_correct_goal)
-                .addUInt8(first_goal).addFloat(sd.m_time)
-                .addTime(m_ticks_back_to_own_goal)
-                .encodeString(sd.m_kart).encodeString(sd.m_player);
-            // Added in 1.1, add missing handicap info and country code
-            NetworkString p_1_1 = p;
-            p_1_1.encodeString(sd.m_country_code)
-                .addUInt8(sd.m_handicap_level);
-            auto peers = STKHost::get()->getPeers();
-            for (auto& peer : peers)
-            {
-                if (peer->isValidated() && !peer->isWaitingForGame())
-                {
-                    if (peer->getClientCapabilities().find("soccer_fixes") !=
-                        peer->getClientCapabilities().end())
-                    {
-                        peer->sendPacket(&p_1_1, true/*reliable*/);
-                    }
-                    else
-                    {
-                        peer->sendPacket(&p, true/*reliable*/);
-                    }
-                }
-            }
-        }
     }
     for (unsigned i = 0; i < m_karts.size(); i++)
     {
@@ -599,37 +534,15 @@ void SoccerWorld::onCheckGoalTriggered(bool first_goal)
 void SoccerWorld::handleResetBallFromServer(const NetworkString& ns)
 {
     int ticks_now = World::getWorld()->getTicksSinceStart();
-    int ticks_back_to_own_goal = ns.getTime();
-    if (ticks_now >= ticks_back_to_own_goal)
-    {
-        Log::warn("SoccerWorld", "Server ticks %d is too close to client ticks "
-            "%d when reset player", ticks_back_to_own_goal, ticks_now);
-        return;
-    }
-    m_reset_ball_ticks = ticks_back_to_own_goal;
+    m_reset_ball_ticks = ticks_now;
 }   // handleResetBallFromServer
 
 //-----------------------------------------------------------------------------
 void SoccerWorld::handlePlayerGoalFromServer(const NetworkString& ns)
 {
     ScorerData sd = {};
-    sd.m_id = ns.getUInt8();
-    sd.m_correct_goal = ns.getUInt8() == 1;
-    bool first_goal = ns.getUInt8() == 1;
-    sd.m_time = ns.getFloat();
-    int ticks_now = World::getWorld()->getTicksSinceStart();
-    int ticks_back_to_own_goal = ns.getTime();
-    ns.decodeString(&sd.m_kart);
-    ns.decodeStringW(&sd.m_player);
-    // Added in 1.1, add missing handicap info and country code
-    if (NetworkConfig::get()->getServerCapabilities().find("soccer_fixes")
-        != NetworkConfig::get()->getServerCapabilities().end())
-    {
-        ns.decodeString(&sd.m_country_code);
-        sd.m_handicap_level = (HandicapLevel)ns.getUInt8();
-    }
 
-    if (first_goal)
+    if (true)
     {
         m_red_scorers.push_back(sd);
     }
@@ -638,31 +551,15 @@ void SoccerWorld::handlePlayerGoalFromServer(const NetworkString& ns)
         m_blue_scorers.push_back(sd);
     }
 
-    if (ticks_now >= ticks_back_to_own_goal && !isStartPhase())
-    {
-        Log::warn("SoccerWorld", "Server ticks %d is too close to client ticks "
-            "%d when goal", ticks_back_to_own_goal, ticks_now);
-        return;
-    }
-
     // show a message once a goal is made
     core::stringw msg;
     if (sd.m_correct_goal)
-        msg = _("%s scored a goal!", sd.m_player);
+        msg = "%s scored a goal!", sd.m_player;
     else
-        msg = _("Oops, %s made an own goal!", sd.m_player);
-    float time = stk_config->ticks2Time(ticks_back_to_own_goal - ticks_now);
-    // May happen if this message is added when spectate started
-    if (time > 3.0f)
-        time = 3.0f;
-    if (m_race_gui && !isStartPhase())
-    {
-        m_race_gui->addMessage(msg, NULL, time,
-            video::SColor(255, 255, 0, 255), /*important*/true,
-            /*big_font*/false, /*outline*/true);
-    }
+        msg = "Oops, %s made an own goal!", sd.m_player;
+    float time = 3.0f;
 
-    m_ticks_back_to_own_goal = ticks_back_to_own_goal;
+    // m_ticks_back_to_own_goal = ticks_back_to_own_goal;
     for (unsigned i = 0; i < m_karts.size(); i++)
     {
         auto& kart = m_karts[i];
@@ -677,8 +574,6 @@ void SoccerWorld::handlePlayerGoalFromServer(const NetworkString& ns)
     m_ball->setEnabled(false);
 
     // Ignore the rest in live join
-    if (isStartPhase())
-        return;
 
     if (sd.m_correct_goal)
     {
@@ -690,7 +585,6 @@ void SoccerWorld::handlePlayerGoalFromServer(const NetworkString& ns)
         m_karts[sd.m_id]->getKartModel()
             ->setAnimation(KartModel::AF_LOSE_START, true/* play_non_loop*/);
     }
-    m_goal_sound->play();
 
 }   // handlePlayerGoalFromServer
 
@@ -790,10 +684,7 @@ void SoccerWorld::updateBallPosition(int ticks)
         m_ball_track_sector
             ->update(getBallPosition(), true/*ignore_vertical*/);
 
-        bool is_client = NetworkConfig::get()->isNetworking() &&
-            NetworkConfig::get()->isClient();
-        bool is_server = NetworkConfig::get()->isNetworking() &&
-            NetworkConfig::get()->isServer();
+        bool is_client = true;
 
         if (!is_client && getTicksSinceStart() > m_reset_ball_ticks &&
             !m_ball_track_sector->isOnRoad())
@@ -802,20 +693,15 @@ void SoccerWorld::updateBallPosition(int ticks)
             // Reset the ball and karts if out of navmesh after 2 seconds
             if (m_ball_invalid_timer >= stk_config->time2Ticks(2.0f))
             {
-                if (is_server)
+                if (false)
                 {
                     // Reset the ball 2 seconds in the future to make sure it's
                     // after all clients time
                     m_reset_ball_ticks = getTicksSinceStart() +
                         stk_config->time2Ticks(2.0f);
 
-                    NetworkString p(PROTOCOL_GAME_EVENTS);
-                    p.setSynchronous(true);
-                    p.addUInt8(GameEventsProtocol::GE_RESET_BALL)
-                        .addTime(m_reset_ball_ticks);
-                    STKHost::get()->sendPacketToAllPeers(&p, true);
                 }
-                else if (!NetworkConfig::get()->isNetworking())
+                else if (true)
                 {
                     m_ball_invalid_timer = 0;
                     resetKartsToSelfGoals();
@@ -1021,94 +907,11 @@ void SoccerWorld::enterRaceOverState()
             Log::verbose("Soccer AI profiling", "Red team wins");
 
         delete this;
-        main_loop->abort();
+        // main_loop->abort();
     }
 
 }   // enterRaceOverState
 
-// ----------------------------------------------------------------------------
-void SoccerWorld::saveCompleteState(BareNetworkString* bns, STKPeer* peer)
-{
-    const unsigned red_scorers = (unsigned)m_red_scorers.size();
-    bns->addUInt32(red_scorers);
-    for (unsigned i = 0; i < red_scorers; i++)
-    {
-        bns->addUInt8((uint8_t)m_red_scorers[i].m_id)
-            .addUInt8(m_red_scorers[i].m_correct_goal)
-            .addFloat(m_red_scorers[i].m_time)
-            .encodeString(m_red_scorers[i].m_kart)
-            .encodeString(m_red_scorers[i].m_player);
-        if (peer->getClientCapabilities().find("soccer_fixes") !=
-            peer->getClientCapabilities().end())
-        {
-            bns->encodeString(m_red_scorers[i].m_country_code)
-                .addUInt8(m_red_scorers[i].m_handicap_level);
-        }
-    }
-
-    const unsigned blue_scorers = (unsigned)m_blue_scorers.size();
-    bns->addUInt32(blue_scorers);
-    for (unsigned i = 0; i < blue_scorers; i++)
-    {
-        bns->addUInt8((uint8_t)m_blue_scorers[i].m_id)
-            .addUInt8(m_blue_scorers[i].m_correct_goal)
-            .addFloat(m_blue_scorers[i].m_time)
-            .encodeString(m_blue_scorers[i].m_kart)
-            .encodeString(m_blue_scorers[i].m_player);
-        if (peer->getClientCapabilities().find("soccer_fixes") !=
-            peer->getClientCapabilities().end())
-        {
-            bns->encodeString(m_blue_scorers[i].m_country_code)
-                .addUInt8(m_blue_scorers[i].m_handicap_level);
-        }
-    }
-    bns->addTime(m_reset_ball_ticks).addTime(m_ticks_back_to_own_goal);
-}   // saveCompleteState
-
-// ----------------------------------------------------------------------------
-void SoccerWorld::restoreCompleteState(const BareNetworkString& b)
-{
-    m_red_scorers.clear();
-    m_blue_scorers.clear();
-
-    const unsigned red_size = b.getUInt32();
-    for (unsigned i = 0; i < red_size; i++)
-    {
-        ScorerData sd;
-        sd.m_id = b.getUInt8();
-        sd.m_correct_goal = b.getUInt8() == 1;
-        sd.m_time = b.getFloat();
-        b.decodeString(&sd.m_kart);
-        b.decodeStringW(&sd.m_player);
-        if (NetworkConfig::get()->getServerCapabilities().find("soccer_fixes")
-            != NetworkConfig::get()->getServerCapabilities().end())
-        {
-            b.decodeString(&sd.m_country_code);
-            sd.m_handicap_level = (HandicapLevel)b.getUInt8();
-        }
-        m_red_scorers.push_back(sd);
-    }
-
-    const unsigned blue_size = b.getUInt32();
-    for (unsigned i = 0; i < blue_size; i++)
-    {
-        ScorerData sd;
-        sd.m_id = b.getUInt8();
-        sd.m_correct_goal = b.getUInt8() == 1;
-        sd.m_time = b.getFloat();
-        b.decodeString(&sd.m_kart);
-        b.decodeStringW(&sd.m_player);
-        if (NetworkConfig::get()->getServerCapabilities().find("soccer_fixes")
-            != NetworkConfig::get()->getServerCapabilities().end())
-        {
-            b.decodeString(&sd.m_country_code);
-            sd.m_handicap_level = (HandicapLevel)b.getUInt8();
-        }
-        m_blue_scorers.push_back(sd);
-    }
-    m_reset_ball_ticks = b.getTime();
-    m_ticks_back_to_own_goal = b.getTime();
-}   // restoreCompleteState
 
 // ----------------------------------------------------------------------------
 float SoccerWorld::getBallDiameter() const
@@ -1128,32 +931,11 @@ Vec3 SoccerWorld::getBallAimPosition(KartTeam team, bool reverse) const
     return m_bgd->getAimPosition(team, reverse);
 }   // getBallAimPosition
 
-// ----------------------------------------------------------------------------
-/** Returns the data to display in the race gui.
- */
-void SoccerWorld::getKartsDisplayInfo(
-                           std::vector<RaceGUIBase::KartIconDisplayInfo> *info)
-{
-    if (!UserConfigParams::m_soccer_player_list)
-        return;
-    const unsigned int kart_amount = getNumKarts();
-    for (unsigned int i = 0; i < kart_amount ; i++)
-    {
-        RaceGUIBase::KartIconDisplayInfo& rank_info = (*info)[i];
-        rank_info.lap = -1;
-        rank_info.m_outlined_font = true;
-        rank_info.m_color = getKartTeam(i) == KART_TEAM_RED ?
-            video::SColor(255, 255, 0, 0) : video::SColor(255, 0, 0, 255);
-        rank_info.m_text = getKart(i)->getController()->getName();
-        if (RaceManager::get()->getKartGlobalPlayerId(i) > -1)
-        {
-            const core::stringw& flag = StringUtils::getCountryFlag(
-                RaceManager::get()->getKartInfo(i).getCountryCode());
-            if (!flag.empty())
-            {
-                rank_info.m_text += L" ";
-                rank_info.m_text += flag;
-            }
-        }
-    }
-}   // getKartsDisplayInfo
+void SoccerWorld::setBallPosition(const Vec3 & p, const Vec3 & v, const Vec3 & a) {
+	m_ball->reset();
+	btTransform new_comt = m_ball_body->getCenterOfMassTransform();
+	new_comt.setOrigin(p);
+	m_ball_body->setCenterOfMassTransform(new_comt);
+	m_ball_body->setLinearVelocity(v);
+	m_ball_body->setAngularVelocity(a);
+}

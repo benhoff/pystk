@@ -24,17 +24,12 @@
 #include "graphics/central_settings.hpp"
 #include "graphics/irr_driver.hpp"
 #include "graphics/stk_text_billboard.hpp"
-#include "guiengine/scalable_font.hpp"
-#include "input/device_manager.hpp"
-#include "input/input_device.hpp"
-#include "input/input_manager.hpp"
+#include "input/input.hpp"
 #include "items/item_manager.hpp"
 #include "modes/world.hpp"
 #include "scriptengine/property_animator.hpp"
 #include "scriptengine/aswrappedcall.hpp"
 #include "scriptengine/scriptarray.hpp"
-#include "states_screens/dialogs/tutorial_message_dialog.hpp"
-#include "states_screens/dialogs/race_paused_dialog.hpp"
 #include "tracks/track.hpp"
 #include "tracks/track_object.hpp"
 #include "tracks/track_object_manager.hpp"
@@ -114,8 +109,8 @@ namespace Scripting
             core::vector3df xyz(location->getX(), location->getY(), location->getZ());
 #ifndef SERVER_ONLY
             STKTextBillboard* tb = new STKTextBillboard(
-                GUIEngine::getSkin()->getColor("font::bottom"),
-                GUIEngine::getSkin()->getColor("font::top"),
+                video::SColor(255,255,220,15),
+                video::SColor(255,255,128,0),
                 irr_driver->getSceneManager()->getRootSceneNode(),
                 irr_driver->getSceneManager(), -1, xyz,
                 core::vector3df(1.5f, 1.5f, 1.5f));
@@ -149,11 +144,6 @@ namespace Scripting
         void exitRace()
         {
             World::getWorld()->scheduleExitRace();
-        }
-
-        void pauseRace()
-        {
-            new RacePausedDialog(0.8f, 0.6f);
         }
 
         int getNumberOfKarts()
@@ -191,7 +181,7 @@ namespace Scripting
 
         int getMajorRaceMode()
         {
-            return RaceManager::get()->getMajorMode();
+            return 1;
         }
 
         int getMinorRaceMode()
@@ -397,12 +387,6 @@ namespace Scripting
             * @{
             */
 
-            /** Pause/resumes a curve-based animation */
-            void setPaused(bool mode /** \cond DOXYGEN_IGNORE */, void *memory /** \endcond */)
-            {
-                ((ThreeDAnimation*)(memory))->setPaused(mode);
-            }
-
             /** @} */
         }
 
@@ -449,19 +433,16 @@ namespace Scripting
             /** Stop a sound */
             void stop(/** \cond DOXYGEN_IGNORE */void *memory /** \endcond */)
             {
-                ((TrackObjectPresentationSound*)memory)->stopSound();
             }
 
             /** Play the specified sound once */
             void playOnce(/** \cond DOXYGEN_IGNORE */void *memory /** \endcond */)
             {
-                ((TrackObjectPresentationSound*)memory)->triggerSound(false); //false = once
             }
 
             /** Play the specified sound continuously */
             void playLoop(/** \cond DOXYGEN_IGNORE */void *memory /** \endcond */)
             {
-                ((TrackObjectPresentationSound*)memory)->triggerSound(true); //true = loop
             }
             /** @} */
         }
@@ -557,10 +538,6 @@ namespace Scripting
                                                mp ? WRAP_FN(exitRace) : asFUNCTION(exitRace), 
                                                call_conv); assert(r >= 0);
                                                
-            r = engine->RegisterGlobalFunction("void pauseRace()", 
-                                               mp ? WRAP_FN(pauseRace) : asFUNCTION(pauseRace), 
-                                               call_conv); assert(r >= 0);
-                                               
             r = engine->RegisterGlobalFunction("void setFog(float maxDensity, float start, float end, int r, int g, int b, float duration)", 
                                                mp ? WRAP_FN(setFog) : asFUNCTION(setFog), 
                                                call_conv); assert(r >= 0);
@@ -606,9 +583,9 @@ namespace Scripting
                                              mp ? WRAP_MFN(::TrackObject, setEnabled) : asMETHOD(::TrackObject, setEnabled), 
                                              call_conv_thiscall); assert(r >= 0);
                                              
-            r = engine->RegisterObjectMethod("TrackObject", "SoundEmitter@ getSoundEmitter()", 
-                                             mp ? WRAP_MFN(::TrackObject, getSoundEmitter) : asMETHOD(::TrackObject, getSoundEmitter), 
-                                             call_conv_thiscall); assert(r >= 0);
+//             r = engine->RegisterObjectMethod("TrackObject", "SoundEmitter@ getSoundEmitter()", 
+//                                              mp ? WRAP_MFN(::TrackObject, getSoundEmitter) : asMETHOD(::TrackObject, getSoundEmitter), 
+//                                              call_conv_thiscall); assert(r >= 0);
                                              
             r = engine->RegisterObjectMethod("TrackObject", "Light@ getLight()", 
                                              mp ? WRAP_MFN(::TrackObject, getLight) : asMETHOD(::TrackObject, getLight), 
@@ -755,16 +732,6 @@ namespace Scripting
                                              mp ? WRAP_OBJ_LAST(Light::animateEnergy) : asFUNCTION(Light::animateEnergy), 
                                              call_conv_objlast); assert(r >= 0);
 
-            // Curve based Animation
-            //fails due to insufficient visibility to scripts TODO : Decide whether to fix visibility or introduce wrappers
-            //r = engine->RegisterObjectMethod("Animator", "void setPaused(bool mode)", 
-            //                                 mp ? WRAP_MFN(ThreeDAnimation, setPaused) : asMETHOD(ThreeDAnimation, setPaused), 
-            //                                 call_conv_thiscall); assert(r >= 0);
-            
-            r = engine->RegisterObjectMethod("Animator", "void setPaused(bool mode)", 
-                                             mp ? WRAP_OBJ_LAST(Animator::setPaused) : asFUNCTION(Animator::setPaused), 
-                                             call_conv_objlast); assert(r >= 0);
-                                             
             // TODO: add method to set current frame
             // TODO: add method to launch playback from frame X to frame Y
             // TODO: add method to register onAnimationComplete notifications ?

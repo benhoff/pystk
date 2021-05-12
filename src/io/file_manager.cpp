@@ -20,11 +20,8 @@
 
 #include "io/file_manager.hpp"
 
-#include "config/user_config.hpp"
 #include "graphics/irr_driver.hpp"
 #include "graphics/material_manager.hpp"
-#include "guiengine/engine.hpp"
-#include "guiengine/skin.hpp"
 #include "karts/kart_properties_manager.hpp"
 #include "tracks/track_manager.hpp"
 #include "utils/command_line.hpp"
@@ -133,8 +130,21 @@ FileManager* file_manager = 0;
  */
 FileManager::FileManager()
 {
-    m_root_dirs.clear();
-    resetSubdir();
+    m_subdir_name.resize(ASSET_COUNT);
+    m_subdir_name[CHALLENGE  ] = "challenges";
+    m_subdir_name[GFX        ] = "gfx";
+    m_subdir_name[GRANDPRIX  ] = "grandprix";
+    m_subdir_name[GUI_ICON   ] = "gui/icons";
+    m_subdir_name[GUI_SCREEN ] = "gui/screens";
+    m_subdir_name[GUI_DIALOG ] = "gui/dialogs";
+    m_subdir_name[LIBRARY    ] = "library";
+    m_subdir_name[MODEL      ] = "models";
+    m_subdir_name[MUSIC      ] = "music";
+    m_subdir_name[SCRIPT     ] = "tracks";
+    m_subdir_name[SKIN       ] = "skins";
+    m_subdir_name[SHADER     ] = "shaders";
+    m_subdir_name[TEXTURE    ] = "textures";
+    m_subdir_name[TTF        ] = "ttf";
 #ifdef __APPLE__
     // irrLicht's createDevice method has a nasty habit of messing the CWD.
     // since the code above may rely on it, save it to be able to restore
@@ -170,10 +180,10 @@ FileManager::FileManager()
     }
     if(exe_path.size()==0 || exe_path[exe_path.size()-1]!='/')
         exe_path += "/";
-    if ( getenv ( "SUPERTUXKART_DATADIR" ) != NULL )
+    if ( getenv ( "SUPERTUXKART_DATADIR" ) != NULL && fileExists((std::string(getenv("SUPERTUXKART_DATADIR"))+"/data/").c_str(), version) )
         root_dir = std::string(getenv("SUPERTUXKART_DATADIR"))+"/data/" ;
 #ifdef __APPLE__
-    else if( macSetBundlePathIfRelevant( root_dir ) ) { root_dir = root_dir + "data/"; }
+//    else if( macSetBundlePathIfRelevant( root_dir ) ) { root_dir = root_dir + "data/"; }
 #endif
     else if(fileExists("data/", version))
         root_dir = "data/" ;
@@ -211,8 +221,8 @@ FileManager::FileManager()
                    "Set $SUPERTUXKART_DATADIR to point to the data directory.");
         // fatal will exit the application
     }
-
     addRootDirs(root_dir);
+    addRootDirs(root_dir + "../stk-assets/");
 
     std::string assets_dir;
 #ifdef MOBILE_STK
@@ -224,7 +234,15 @@ FileManager::FileManager()
 #else
 #error You must set m_stk_assets_download_dir to appropriate place for your platform
 #endif
-
+        m_stk_assets_download_dir = assets_dir;
+        // Those will be filled with real data later
+        checkAndCreateDirectoryP(m_stk_assets_download_dir + "/karts");
+        checkAndCreateDirectoryP(m_stk_assets_download_dir + "/library");
+        checkAndCreateDirectoryP(m_stk_assets_download_dir + "/models");
+        checkAndCreateDirectoryP(m_stk_assets_download_dir + "/music");
+        checkAndCreateDirectoryP(m_stk_assets_download_dir + "/textures");
+        checkAndCreateDirectoryP(m_stk_assets_download_dir + "/tracks");
+    }
 #else
     if (getenv("SUPERTUXKART_ASSETS_DIR") != NULL)
     {
@@ -252,7 +270,6 @@ FileManager::FileManager()
     checkAndCreateConfigDir();
     checkAndCreateAddonsDir();
     checkAndCreateScreenshotDir();
-    checkAndCreateReplayDir();
     checkAndCreateCachedTexturesDir();
     checkAndCreateGPDir();
 
@@ -275,14 +292,14 @@ void FileManager::resetSubdir()
     m_subdir_name[LIBRARY    ] = "library";
     m_subdir_name[MODEL      ] = "models";
     m_subdir_name[MUSIC      ] = "music";
-    m_subdir_name[REPLAY     ] = "replay";
+    // m_subdir_name[REPLAY     ] = "replay";
     m_subdir_name[SCRIPT     ] = "tracks";
-    m_subdir_name[SFX        ] = "sfx";
+    // m_subdir_name[SFX        ] = "sfx";
     m_subdir_name[SKIN       ] = "skins";
     m_subdir_name[SHADER     ] = "shaders";
     m_subdir_name[TEXTURE    ] = "textures";
     m_subdir_name[TTF        ] = "ttf";
-    m_subdir_name[TRANSLATION] = "po";
+    // m_subdir_name[TRANSLATION] = "po";
 }   // resetSubdir
 
 // ----------------------------------------------------------------------------
@@ -296,8 +313,6 @@ void FileManager::discoverPaths()
     for(unsigned int i=0; i<m_root_dirs.size(); i++)
         Log::info("[FileManager]", "Data files will be fetched from: '%s'",
                    m_root_dirs[i].c_str());
-    Log::info("[FileManager]", "User directory is '%s'.",
-              m_user_config_dir.c_str());
     Log::info("[FileManager]", "Addons files will be stored in '%s'.",
                m_addons_dir.c_str());
     Log::info("[FileManager]", "Screenshots will be stored in '%s'.",
@@ -361,15 +376,6 @@ void FileManager::discoverPaths()
         if(fileExists(m_root_dirs[i]+"karts/"))
             KartPropertiesManager::addKartSearchDir(m_root_dirs[i]+"karts/");
 
-        // If artist debug mode is enabled, add
-        // work-in-progress tracks and karts
-        if (UserConfigParams::m_artist_debug_mode)
-        {
-            if(fileExists(m_root_dirs[i] + "wip-tracks/"))
-                TrackManager::addTrackSearchDir(m_root_dirs[i] + "wip-tracks/");
-            if(fileExists(m_root_dirs[i] + "wip-karts/"))
-                KartPropertiesManager::addKartSearchDir(m_root_dirs[i] + "wip-karts/");
-        }
         for(unsigned int j=ASSET_MIN; j<=ASSET_MAX; j++)
         {
             if(!dir_found[j] && fileExists(m_root_dirs[i]+m_subdir_name[j]))
@@ -446,14 +452,8 @@ void FileManager::init()
         StkTime::TimeType current = StkTime::getTimeSinceEpoch();
         if(current - mystat.st_ctime <24*3600)
         {
-            if(UserConfigParams::logAddons())
-                Log::verbose("[FileManager]", "'%s' is less than 24h old "
-                             "and will not be deleted.",
-                             full_path.c_str());
             continue;
         }
-        if(UserConfigParams::logAddons())
-            Log::verbose("[FileManager]", "Deleting tmp file'%s'.",full_path.c_str());
         removeFile(full_path);
 
     }   // for i in all files in tmp
@@ -518,7 +518,6 @@ FileManager::~FileManager()
  */
 bool FileManager::fileExists(const std::string& path) const
 {
-    std::lock_guard<std::mutex> lock(m_file_system_lock);
 #ifdef DEBUG
     bool exists = m_file_system->existFile(path.c_str());
     if(exists) return true;
@@ -566,10 +565,6 @@ XMLNode *FileManager::createXMLTree(const std::string &filename)
     }
     catch (std::runtime_error& e)
     {
-        if (UserConfigParams::logMisc())
-        {
-            Log::error("[FileManager]", "createXMLTree: %s", e.what());
-        }
         return NULL;
     }
 }   // createXMLTree
@@ -596,10 +591,6 @@ XMLNode *FileManager::createXMLTreeFromString(const std::string & content)
     }
     catch (std::runtime_error& e)
     {
-        if (UserConfigParams::logMisc())
-        {
-            Log::error("[FileManager]", "createXMLTreeFromString: %s", e.what());
-        }
         return NULL;
     }
 }   // createXMLTreeFromString
@@ -621,8 +612,6 @@ io::path FileManager::createAbsoluteFilename(const std::string &f)
  */
 void FileManager::pushModelSearchPath(const std::string& path)
 {
-    std::lock_guard<std::mutex> lock(m_file_system_lock);
-
     m_model_search_path.push_back(path);
     const int n=m_file_system->getFileArchiveCount();
     m_file_system->addFileArchive(createAbsoluteFilename(path),
@@ -650,8 +639,6 @@ void FileManager::pushModelSearchPath(const std::string& path)
  */
 void FileManager::pushTextureSearchPath(const std::string& path, const std::string& container_id)
 {
-    std::lock_guard<std::mutex> lock(m_file_system_lock);
-
     m_texture_search_path.push_back(TextureSearchPath(path, container_id));
     const int n=m_file_system->getFileArchiveCount();
     m_file_system->addFileArchive(createAbsoluteFilename(path),
@@ -681,7 +668,6 @@ void FileManager::popTextureSearchPath()
 {
     if (!m_texture_search_path.empty())
     {
-        std::lock_guard<std::mutex> lock(m_file_system_lock);
         TextureSearchPath dir = m_texture_search_path.back();
         m_texture_search_path.pop_back();
         m_file_system->removeFileArchive(createAbsoluteFilename(dir.m_texture_search_path));
@@ -695,7 +681,6 @@ void FileManager::popModelSearchPath()
 {
     if (!m_model_search_path.empty())
     {
-        std::lock_guard<std::mutex> lock(m_file_system_lock);
         std::string dir = m_model_search_path.back();
         m_model_search_path.pop_back();
         m_file_system->removeFileArchive(createAbsoluteFilename(dir));
@@ -787,19 +772,6 @@ std::string FileManager::getAssetChecked(FileManager::AssetType type,
 std::string FileManager::getAsset(FileManager::AssetType type,
                                   const std::string &name) const
 {
-    if (type == GUI_ICON && GUIEngine::getSkin()->hasIconTheme())
-    {
-        // remove the extension to check both .svg and .png
-        const std::string test_path = StringUtils::removeExtension
-            (GUIEngine::getSkin()->getDataPath() + "data/gui/icons/" + name);
-        // first check if there is an SVG version
-        if (fileExists(test_path + ".svg"))
-            return test_path + ".svg";
-        else if (fileExists(test_path + ".png"))
-            return test_path + ".png";
-        else
-            return m_subdir_name[type] + name;
-    }
     return m_subdir_name[type] + name;
 }   // getAsset
 
@@ -822,14 +794,6 @@ std::string FileManager::getScreenshotDir() const
 {
     return m_screenshot_dir;
 }   // getScreenshotDir
-
-//-----------------------------------------------------------------------------
-/** Returns the directory in which replay file should be stored.
- */
-std::string FileManager::getReplayDir() const
-{
-    return m_replay_dir;
-}   // getReplayDir
 
 //-----------------------------------------------------------------------------
 /** Returns the directory in which resized textures should be cached.
@@ -976,7 +940,7 @@ void FileManager::checkAndCreateConfigDir()
         std::vector<wchar_t> env;
         // An environment variable has a maximum size limit of 32,767 characters
         env.resize(32767, 0);
-        DWORD length = GetEnvironmentVariable(L"APPDATA", env.data(), 32767);
+        DWORD length = GetEnvironmentVariableW(L"APPDATA", env.data(), 32767);
         if (length != 0)
         {
             m_user_config_dir = StringUtils::wideToUtf8(env.data());
@@ -1129,32 +1093,6 @@ void FileManager::checkAndCreateScreenshotDir()
     }
 
 }   // checkAndCreateScreenshotDir
-
-// ----------------------------------------------------------------------------
-/** Creates the directories for replay recorded. This will set m_replay_dir
- *  with the appropriate path.
- */
-void FileManager::checkAndCreateReplayDir()
-{
-#if defined(WIN32)
-    m_replay_dir = m_user_config_dir + "replay/";
-#elif defined(__APPLE__)
-    m_replay_dir  = getenv("HOME");
-    m_replay_dir += "/Library/Application Support/SuperTuxKart/replay/";
-#else
-    m_replay_dir = checkAndCreateLinuxDir("XDG_DATA_HOME", "supertuxkart",
-                                          ".local/share", ".supertuxkart");
-    m_replay_dir += "replay/";
-#endif
-
-    if(!checkAndCreateDirectory(m_replay_dir))
-    {
-        Log::error("FileManager", "Can not create replay directory '%s', "
-                   "falling back to '.'.", m_replay_dir.c_str());
-        m_replay_dir = ".";
-    }
-
-}   // checkAndCreateReplayDir
 
 // ----------------------------------------------------------------------------
 /** Creates the directories for cached textures. This will set
@@ -1522,10 +1460,6 @@ bool FileManager::removeDirectory(const std::string &name) const
             file == name + "/..")
             continue;
 
-        if (UserConfigParams::logMisc())
-            Log::verbose("FileManager", "Deleting directory '%s'.",
-                         file.c_str());
-
         if (isDirectory(file))
         {
             // This should not be necessary (since this function is only
@@ -1548,7 +1482,7 @@ bool FileManager::removeDirectory(const std::string &name) const
     }
 
 #if defined(WIN32)
-    return RemoveDirectory(StringUtils::utf8ToWide(name).c_str())==TRUE;
+    return RemoveDirectoryW(StringUtils::utf8ToWide(name).c_str())==TRUE;
 #else
     return remove(name.c_str())==0;
 #endif

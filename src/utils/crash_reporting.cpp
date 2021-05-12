@@ -172,7 +172,7 @@
         // --------------------------------------------------------------------
         void getCallStackWithContext(std::string& callstack, PCONTEXT pContext)
         {
-            HINSTANCE hDbgHelpDll = LoadLibrary(L"DbgHelp.dll");
+            HINSTANCE hDbgHelpDll = LoadLibraryW(L"DbgHelp.dll");
             if (!hDbgHelpDll)
             {
                 Log::warn("CrashReporting", "Failed to load DLL dbghelp.dll");
@@ -399,9 +399,8 @@
         {
             if (m_stk_bfd == NULL)
             {
-                Log::warn("CrashReporting", "Failed loading or missing BFD of "
-                          "STK binary, no backtrace available when reporting");
-                exit(0);
+                Log::fatal("CrashReporting", "Failed loading or missing BFD of "
+                           "STK binary, no backtrace available when reporting");
             }
 
             Log::error("CrashReporting", "STK has crashed! Backtrace info:");
@@ -414,7 +413,7 @@
                 // Skip 3 stacks which are crash_reporting doing
                 Log::error("CrashReporting", "%s", each[i].c_str());
             }
-            exit(0);
+            Log::fatal("CrashReporting", "crashed");
         }
 
         void loadSTKBFD()

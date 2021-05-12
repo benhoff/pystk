@@ -18,9 +18,6 @@
 
 #include "tracks/track_object_presentation.hpp"
 
-#include "audio/sfx_base.hpp"
-#include "audio/sfx_buffer.hpp"
-#include "challenges/unlock_manager.hpp"
 #include "config/user_config.hpp"
 #include "graphics/camera.hpp"
 #include "graphics/central_settings.hpp"
@@ -33,14 +30,11 @@
 #include "graphics/sp/sp_shader_manager.hpp"
 #include "io/file_manager.hpp"
 #include "io/xml_node.hpp"
-#include "input/device_manager.hpp"
-#include "input/input_device.hpp"
-#include "input/input_manager.hpp"
+#include "input/input.hpp"
 #include "items/item_manager.hpp"
 #include "karts/abstract_kart.hpp"
 #include "modes/world.hpp"
 #include "scriptengine/script_engine.hpp"
-#include "states_screens/dialogs/tutorial_message_dialog.hpp"
 #include "tracks/check_cylinder.hpp"
 #include "tracks/check_manager.hpp"
 #include "tracks/check_trigger.hpp"
@@ -372,6 +366,7 @@ TrackObjectPresentationLOD::~TrackObjectPresentationLOD()
 // ----------------------------------------------------------------------------
 void TrackObjectPresentationLOD::reset()
 {
+    RandomGenerator rg;
     LODNode* ln = dynamic_cast<LODNode*>(m_node);
     if (ln)
     {
@@ -383,7 +378,6 @@ void TrackObjectPresentationLOD::reset()
             {
                 a_node->setLoopMode(true);
                 a_node->setAnimationEndCallback(NULL);
-                RandomGenerator rg;
                 int animation_set = 0;
                 if (a_node->getAnimationSetNum() > 0)
                     animation_set = rg.get(a_node->getAnimationSetNum());
@@ -424,8 +418,7 @@ TrackObjectPresentationMesh::TrackObjectPresentationMesh(
         m_is_in_skybox = true;
     }
 
-    bool animated = skeletal_animation && (UserConfigParams::m_animated_characters ||
-                     World::getWorld()->getIdent() == IDENT_CUTSCENE);
+    bool animated = skeletal_animation && UserConfigParams::m_animated_characters;
     bool displacing = false;
     xml_node.get("displacing", &displacing);
     animated &= !displacing;
@@ -473,8 +466,7 @@ TrackObjectPresentationMesh::TrackObjectPresentationMesh(
     m_node         = NULL;
     m_is_in_skybox = false;
     m_render_info  = NULL;
-    bool animated  = (UserConfigParams::m_particles_effects > 1 ||
-                      World::getWorld()->getIdent() == IDENT_CUTSCENE);
+    bool animated  = UserConfigParams::m_particles_effects > 1;
 
     m_model_file = model_file;
     file_manager->pushTextureSearchPath(StringUtils::getPath(model_file), "");
@@ -510,8 +502,7 @@ void TrackObjectPresentationMesh::init(const XMLNode* xml_node,
     if(xml_node)
         xml_node->get("skeletal-animation", &skeletal_animation);
 
-    bool animated = skeletal_animation && (UserConfigParams::m_particles_effects > 1 ||
-             World::getWorld()->getIdent() == IDENT_CUTSCENE);
+    bool animated = skeletal_animation && UserConfigParams::m_particles_effects > 1;
     bool displacing = false;
     std::string interaction;
     if (xml_node)
@@ -624,6 +615,7 @@ TrackObjectPresentationMesh::~TrackObjectPresentationMesh()
 // ----------------------------------------------------------------------------
 void TrackObjectPresentationMesh::reset()
 {
+    RandomGenerator rg;
     if (m_node->getType()==scene::ESNT_ANIMATED_MESH)
     {
         scene::IAnimatedMeshSceneNode *a_node =
@@ -642,157 +634,12 @@ void TrackObjectPresentationMesh::reset()
 
         // irrlicht's "setFrameLoop" is a misnomer, it just sets the first and
         // last frame, even if looping is disabled
-        RandomGenerator rg;
         int animation_set = 0;
         if (a_node->getAnimationSetNum() > 0)
             animation_set = rg.get(a_node->getAnimationSetNum());
         a_node->useAnimationSet(animation_set);
     }
 }   // reset
-
-// ----------------------------------------------------------------------------
-TrackObjectPresentationSound::TrackObjectPresentationSound(
-                                                     const XMLNode& xml_node,
-                                                     scene::ISceneNode* parent,
-                                                     bool disable_for_multiplayer)
-                            : TrackObjectPresentation(xml_node)
-{
-    // TODO: respect 'parent' if any
-
-    m_enabled = true;
-    m_sound = NULL;
-    m_xyz   = m_init_xyz;
-
-    std::string sound;
-    xml_node.get("sound", &sound);
-
-    float rolloff = 0.5;
-    xml_node.get("rolloff",  &rolloff );
-    float volume = 1.0;
-    xml_node.get("volume",   &volume );
-
-    bool trigger_when_near = false;
-    xml_node.get("play-when-near", &trigger_when_near);
-
-    float trigger_distance = 1.0f;
-    xml_node.get("distance", &trigger_distance);
-
-    xml_node.get("conditions", &m_trigger_condition);
-
-    float max_dist = 390.0f;
-    xml_node.get("max_dist", &max_dist );
-
-    if (trigger_when_near)
-    {
-        Track::getCurrentTrack()->getCheckManager()->add(
-            new CheckTrigger(m_init_xyz, trigger_distance, std::bind(
-            &TrackObjectPresentationSound::onTriggerItemApproached,
-            this, std::placeholders::_1)));
-    }
-
-    if (disable_for_multiplayer)
-        return;
-    // first try track dir, then global dir
-    std::string soundfile = Track::getCurrentTrack()->getTrackFile(sound);
-    //std::string soundfile = file_manager->getAsset(FileManager::MODEL,sound);
-    if (!file_manager->fileExists(soundfile))
-    {
-        soundfile = file_manager->getAsset(FileManager::SFX, sound);
-    }
-
-    SFXBuffer* buffer = new SFXBuffer(soundfile,
-                                      true /* positional */,
-                                      rolloff,
-                                      max_dist,
-                                      volume);
-    buffer->load();
-
-    m_sound = SFXManager::get()->createSoundSource(buffer, true, true);
-    if (m_sound != NULL)
-    {
-        m_sound->setPosition(m_init_xyz);
-        if (!trigger_when_near && m_trigger_condition.empty())
-        {
-            m_sound->setLoop(true);
-            m_sound->play();
-        }
-    }
-    else
-        Log::error("TrackObject", "Sound emitter object could not be created.");
-
-}   // TrackObjectPresentationSound
-
-// ----------------------------------------------------------------------------
-void TrackObjectPresentationSound::updateGraphics(float dt)
-{
-    if (m_sound != NULL && m_enabled)
-    {
-        // muting when too far is implemented manually since not supported by
-        // OpenAL so need to call this every frame to update the muting state
-        // if listener moved
-        m_sound->setPosition(m_xyz);
-    }
-}   // update
-
-// ----------------------------------------------------------------------------
-void TrackObjectPresentationSound::onTriggerItemApproached(int kart_id)
-{
-    if (m_sound != NULL && m_sound->getStatus() != SFXBase::SFX_PLAYING && m_enabled)
-    {
-        m_sound->play();
-    }
-}   // onTriggerItemApproached
-
-// ----------------------------------------------------------------------------
-void TrackObjectPresentationSound::triggerSound(bool loop)
-{
-    if (m_sound != NULL && m_enabled)
-    {
-        m_sound->setLoop(loop);
-        m_sound->play();
-    }
-}   // triggerSound
-
-// ----------------------------------------------------------------------------
-void TrackObjectPresentationSound::stopSound()
-{
-    if (m_sound != NULL) 
-        m_sound->stop();
-}   // stopSound
-
-// ----------------------------------------------------------------------------
-TrackObjectPresentationSound::~TrackObjectPresentationSound()
-{
-    if (m_sound)
-    {
-        m_sound->deleteSFX();
-    }
-}   // ~TrackObjectPresentationSound
-
-// ----------------------------------------------------------------------------
-void TrackObjectPresentationSound::move(const core::vector3df& xyz, 
-                                        const core::vector3df& hpr,
-                                        const core::vector3df& scale,
-                                        bool isAbsoluteCoord)
-{
-    m_xyz = xyz;
-    if (m_sound != NULL && m_enabled)
-        m_sound->setPosition(xyz);
-}   // move
-
-// ----------------------------------------------------------------------------
-
-void TrackObjectPresentationSound::setEnable(bool enabled)
-{
-    if (enabled != m_enabled)
-    {
-        m_enabled = enabled;
-        if (enabled)
-            triggerSound(true);
-        else
-            stopSound();
-    }
-}
 
 // ----------------------------------------------------------------------------
 TrackObjectPresentationBillboard::TrackObjectPresentationBillboard(
@@ -826,7 +673,6 @@ TrackObjectPresentationBillboard::TrackObjectPresentationBillboard(
 // ----------------------------------------------------------------------------
 void TrackObjectPresentationBillboard::updateGraphics(float dt)
 {
-    if (GUIEngine::isNoGraphics()) return;
 #ifndef SERVER_ONLY
     if (m_fade_out_when_close)
     {

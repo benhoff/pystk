@@ -22,12 +22,11 @@
 #define HEADER_LOCAL_PLAYER_CONTROLLER_HPP
 
 #include "karts/controller/player_controller.hpp"
+#include "network/remote_kart_info.hpp"
 #include <memory>
 
 class AbstractKart;
 class ParticleEmitter;
-class SFXBase;
-class SFXBuffer;
 
 /** PlayerKart manages control events from the player and moves
   * them to the Kart
@@ -37,11 +36,7 @@ class SFXBuffer;
 class LocalPlayerController : public PlayerController
 {
 private:
-
-    /** Stores the active player data structure. */
-    StateManager::ActivePlayer *m_player;
-
-    bool           m_sound_schedule;
+    // StateManager::ActivePlayer *m_player;
     bool           m_has_started;
     bool           m_is_above_nitro_target;
 
@@ -53,17 +48,8 @@ private:
 
     HandicapLevel m_handicap;
 
-    SFXBase     *m_wee_sound;
-    SFXBuffer   *m_bzzt_sound;
-    SFXBuffer   *m_ugh_sound;
-    SFXBuffer   *m_grab_sound;
-    SFXBuffer   *m_full_sound;
-    SFXBuffer   *m_unfull_sound;
-
-
     virtual void steer(int, int) OVERRIDE;
     virtual void displayPenaltyWarning() OVERRIDE;
-    void         nitroNotFullSound();
 
 public:
                  LocalPlayerController(AbstractKart *kart,
@@ -74,7 +60,7 @@ public:
     bool         action            (PlayerAction action, int value,
                                     bool dry_run=false) OVERRIDE;
             void initParticleEmitter();
-    virtual void handleZipper      (bool play_sound) OVERRIDE;
+    virtual void handleZipper      () OVERRIDE;
     void         collectedItem     (const ItemState &item,
                                     float previous_energy=0) OVERRIDE;
     virtual void setPosition       (int p) OVERRIDE;

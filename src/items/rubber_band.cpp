@@ -18,12 +18,12 @@
 
 #include "items/rubber_band.hpp"
 
+#include "config/stk_config.hpp"
 #include "graphics/central_settings.hpp"
 #include "graphics/irr_driver.hpp"
 #include "graphics/material_manager.hpp"
 #include "graphics/sp/sp_dynamic_draw_call.hpp"
 #include "graphics/sp/sp_shader_manager.hpp"
-#include "guiengine/engine.hpp"
 #include "items/plunger.hpp"
 #include "items/projectile_manager.hpp"
 #include "karts/abstract_kart.hpp"
@@ -49,7 +49,7 @@ RubberBand::RubberBand(Plunger *plunger, AbstractKart *kart)
     m_hit_kart = NULL;
     m_attached_state = RB_TO_PLUNGER;
 #ifndef SERVER_ONLY
-    if (GUIEngine::isNoGraphics() || !CVS->isGLSL())
+    if (!CVS->isGLSL())
     {
         return;
     }

@@ -23,7 +23,6 @@
 #include <ISceneManager.h>
 
 #include "config/stk_config.hpp"
-#include "config/user_config.hpp"
 #include "graphics/central_settings.hpp"
 #include "graphics/b3d_mesh_loader.hpp"
 #include "graphics/irr_driver.hpp"
@@ -35,11 +34,9 @@
 #include "graphics/sp/sp_mesh.hpp"
 #include "graphics/sp/sp_mesh_buffer.hpp"
 #include "graphics/sp/sp_mesh_node.hpp"
-#include "guiengine/engine.hpp"
 #include "io/file_manager.hpp"
 #include "io/xml_node.hpp"
 #include "karts/abstract_kart.hpp"
-#include "karts/ghost_kart.hpp"
 #include "karts/kart_properties.hpp"
 #include "physics/btKart.hpp"
 #include "tracks/track.hpp"
@@ -628,10 +625,6 @@ bool KartModel::loadModels(const KartProperties &kart_properties)
     m_kart_highest_point = kart_max.getY();
     m_kart_lowest_point  = kart_min.getY();
     initInverseBoneMatrices();
-
-    if (GUIEngine::isNoGraphics())
-        m_mesh->freeMeshVertexBuffer();
-
     // Load the speed weighted object models. We need to do that now because it can affect the dimensions of the kart
     for(size_t i=0 ; i < m_speed_weighted_objects.size() ; i++)
     {
@@ -675,8 +668,6 @@ bool KartModel::loadModels(const KartProperties &kart_properties)
         obj.m_location.transformVect(transformed_max, obj_max.toIrrVector());
         kart_min.min(transformed_min);
         kart_max.max(transformed_max);
-        if (GUIEngine::isNoGraphics())
-            mesh->freeMeshVertexBuffer();
     }
 
     for (unsigned int i = 0; i < m_headlight_objects.size(); i++)
@@ -692,8 +683,6 @@ bool KartModel::loadModels(const KartProperties &kart_properties)
 #endif
         obj.getModel()->grab();
         irr_driver->grabAllTextures(obj.getModel());
-        if (GUIEngine::isNoGraphics())
-            obj.getModel()->freeMeshVertexBuffer();
     }
 
     Vec3 size     = kart_max-kart_min;
@@ -742,8 +731,6 @@ bool KartModel::loadModels(const KartProperties &kart_properties)
         // the destructor will only free the textures if a master
         // copy is freed.
         irr_driver->grabAllTextures(m_wheel_model[i]);
-        if (GUIEngine::isNoGraphics())
-            m_wheel_model[i]->freeMeshVertexBuffer();
     }   // for i<4
 
     return true;
@@ -1000,14 +987,6 @@ void KartModel::OnAnimationEnd(scene::IAnimatedMeshSceneNode *node)
 // ----------------------------------------------------------------------------
 void KartModel::setDefaultSuspension()
 {
-    GhostKart* gk = dynamic_cast<GhostKart*>(m_kart);
-    if (gk)
-    {
-        for (int i = 0; i < 4; i++)
-            m_default_physics_suspension[i] = gk->getSuspensionLength(0, i);
-        return;
-    }
-
     for(int i=0; i<m_kart->getVehicle()->getNumWheels(); i++)
     {
         const btWheelInfo &wi = m_kart->getVehicle()->getWheelInfo(i);
@@ -1027,42 +1006,21 @@ void KartModel::setDefaultSuspension()
  *         speed-weighted objects' animations
  *  \param current_lean_angle How much the kart is leaning (positive meaning
  *         left side down)
- *  \param gt_replay_index The index to get replay data, used by ghost kart
  */
 void KartModel::update(float dt, float distance, float steer, float speed,
-                       float current_lean_angle, int gt_replay_index)
+                       float current_lean_angle)
 {
     core::vector3df wheel_steer(0, steer*30.0f, 0);
 
     for(unsigned int i=0; i<4; i++)
     {
         if (!m_kart || !m_wheel_node[i]) continue;
-#ifdef DEBUG
-        if (UserConfigParams::m_physics_debug &&
-            !m_kart->isGhostKart())
-        {
-            const btWheelInfo &wi = m_kart->getVehicle()->getWheelInfo(i);
-            // Make wheels that are not touching the ground invisible
-            m_wheel_node[i]->setVisible(wi.m_raycastInfo.m_isInContact);
-        }
-#endif
         core::vector3df pos =  m_wheel_graphics_position[i].toIrrVector();
 
         float suspension_length = m_default_physics_suspension[i];
-        GhostKart* gk = dynamic_cast<GhostKart*>(m_kart);
         // Prevent using suspension length uninitialized
-        if ( !gk || gt_replay_index != -1)
-        {
-            if (gk)
-            {
-                suspension_length = gk->getSuspensionLength(gt_replay_index, i);
-            }
-            else
-            {
-                suspension_length = m_kart->getVehicle()->getWheelInfo(i).
-                                    m_raycastInfo.m_suspensionLength;
-            }
-        }
+        suspension_length = m_kart->getVehicle()->getWheelInfo(i).
+                            m_raycastInfo.m_suspensionLength;
 
         // Check documentation of Kart::updateGraphics for the following line
         pos.Y +=   m_default_physics_suspension[i]
@@ -1217,7 +1175,7 @@ void KartModel::resetVisualWheelPosition()
 //-----------------------------------------------------------------------------
 std::shared_ptr<RenderInfo> KartModel::getRenderInfo()
 {
-    return m_support_colorization ? m_render_info : NULL;
+    return m_render_info;
 }   // getRenderInfo
 
 //-----------------------------------------------------------------------------

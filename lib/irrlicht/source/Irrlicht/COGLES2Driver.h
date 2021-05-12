@@ -18,10 +18,9 @@
 #include "CIrrDeviceWayland.h"
 #endif
 
-namespace irr
-{
-	class CIrrDeviceSDL;
-}
+#if defined(_IRR_COMPILE_WITH_OFF_SCREEN_DEVICE_)
+#include "CIrrDeviceOffScreen.h"
+#endif
 
 #include "SIrrCreationParameters.h"
 
@@ -73,6 +72,11 @@ namespace video
 #ifdef _IRR_COMPILE_WITH_WAYLAND_DEVICE_
 		COGLES2Driver(const SIrrlichtCreationParameters& params, 
 					io::IFileSystem* io, CIrrDeviceWayland* device);
+#endif
+
+#ifdef _IRR_COMPILE_WITH_OFF_SCREEN_DEVICE_
+		COGLES2Driver(const SIrrlichtCreationParameters& params, 
+					io::IFileSystem* io, CIrrDeviceOffScreen* device);
 #endif
 
 #ifdef _IRR_COMPILE_WITH_OSX_DEVICE_

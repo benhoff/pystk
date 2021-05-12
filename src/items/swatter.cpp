@@ -26,10 +26,7 @@
 
 #include "items/swatter.hpp"
 
-#include "achievements/achievements_status.hpp"
-#include "audio/sfx_base.hpp"
-#include "audio/sfx_manager.hpp"
-#include "config/player_manager.hpp"
+#include "config/stk_config.hpp"
 #include "graphics/explosion.hpp"
 #include "graphics/irr_driver.hpp"
 #include "io/file_manager.hpp"
@@ -40,8 +37,7 @@
 #include "karts/explosion_animation.hpp"
 #include "karts/kart_properties.hpp"
 #include "modes/capture_the_flag.hpp"
-#include "network/network_string.hpp"
-#include "network/rewind_manager.hpp"
+
 
 #define SWAT_POS_OFFSET        core::vector3df(0.0, 0.2f, -0.4f)
 #define SWAT_ANGLE_MIN  45
@@ -79,7 +75,6 @@ Swatter::Swatter(AbstractKart *kart, int16_t bomb_ticks, int ticks,
             World::getWorld()->getTicksSinceStart() +
             stk_config->time2Ticks(40.0f / 25.0f);
     }
-    m_swat_sound = NULL;
     m_swatter_animation_ticks = 0;
     m_played_swatter_animation = false;
 }   // Swatter
@@ -94,12 +89,6 @@ Swatter::~Swatter()
         irr_driver->removeNode(m_bomb_scene_node);
         m_bomb_scene_node = NULL;
     }
-#ifndef SERVER_ONLY
-    if (m_swat_sound)
-    {
-        m_swat_sound->deleteSFX();
-    }
-#endif
 }   // ~Swatter
 
 // ----------------------------------------------------------------------------
@@ -182,13 +171,6 @@ void Swatter::updateGraphics(float dt)
             m_scene_node->setLoopMode(false);
             m_scene_node->setAnimationSpeed(0.0f);
         }
-        if (!m_swat_sound)
-        {
-            if (m_kart->getIdent() == "nolok")
-                m_swat_sound = SFXManager::get()->createSoundSource("hammer");
-            else
-                m_swat_sound = SFXManager::get()->createSoundSource("swatter");
-        }
         if (!m_discard_now)
         {
             switch (m_animation_phase)
@@ -209,8 +191,6 @@ void Swatter::updateGraphics(float dt)
                         m_scene_node->setAnimationSpeed(SWATTER_ANIMATION_SPEED);
                         Vec3 swatter_pos =
                             m_kart->getTrans()(Vec3(SWAT_POS_OFFSET));
-                        m_swat_sound->setPosition(swatter_pos);
-                        m_swat_sound->play();
                     }
                     pointToTarget();
                 }
@@ -271,7 +251,7 @@ bool Swatter::updateAndTestFinished(int ticks)
                 float min_dist2
                      = m_kart->getKartProperties()->getSwatterDistance();
 
-                if (dist2 < min_dist2 && !m_kart->isGhostKart())
+                if (dist2 < min_dist2)
                 {
                     // Start squashing
                     m_animation_phase = SWATTER_TO_TARGET;
@@ -363,7 +343,7 @@ void Swatter::chooseTarget()
 void Swatter::pointToTarget()
 {
 #ifndef SERVER_ONLY
-    if (m_kart->isGhostKart() || !m_scene_node)
+    if (!m_scene_node)
         return;
 
     if (!m_closest_kart)
@@ -388,8 +368,6 @@ void Swatter::pointToTarget()
  */
 void Swatter::squashThingsAround()
 {
-    if (m_kart->isGhostKart()) return;
-
     const KartProperties *kp = m_kart->getKartProperties();
 
     float duration = kp->getSwatterSquashDuration();
@@ -412,77 +390,13 @@ void Swatter::squashThingsAround()
             ctf->resetKartForSwatterHit(m_closest_kart->getWorldKartId(),
                 reset_ticks);
         }
-        // Handle achievement if the swatter is used by the current player
-        if (m_kart->getController()->canGetAchievements())
-        {
-            PlayerManager::addKartHit(m_closest_kart->getWorldKartId());
-            PlayerManager::increaseAchievement(AchievementsStatus::SWATTER_HIT, 1);
-            PlayerManager::increaseAchievement(AchievementsStatus::ALL_HITS, 1);
-            if (RaceManager::get()->isLinearRaceMode())
-            {
-                PlayerManager::increaseAchievement(AchievementsStatus::SWATTER_HIT_1RACE, 1);
-                PlayerManager::increaseAchievement(AchievementsStatus::ALL_HITS_1RACE, 1);
-            }
-        }
     }
 
-    if (!GUIEngine::isNoGraphics() && has_created_explosion_animation &&
-        !RewindManager::get()->isRewinding())
+    if (has_created_explosion_animation)
     {
-        HitEffect *he = new Explosion(m_kart->getXYZ(),  "explosion", "explosion.xml");
-        if(m_kart->getController()->isLocalPlayerController())
-            he->setLocalPlayerKartHit();
+        HitEffect *he = new Explosion(m_kart->getXYZ(), "explosion.xml");
         ProjectileManager::get()->addHitEffect(he);
     }   // if kart has bomb attached
 
     // TODO: squash items
 }   // squashThingsAround
-
-// ----------------------------------------------------------------------------
-void Swatter::restoreState(BareNetworkString* buffer)
-{
-    int16_t prev_bomb_remaing = m_bomb_remaining;
-    m_bomb_remaining = buffer->getUInt16();
-    if (prev_bomb_remaing != m_bomb_remaining)
-    {
-        // Wrong state, clear mesh and let updateGraphics reset itself
-        m_scene_node = NULL;
-        if (m_bomb_scene_node)
-        {
-            irr_driver->removeNode(m_bomb_scene_node);
-            m_bomb_scene_node = NULL;
-        }
-    }
-    if (m_bomb_remaining == -1)
-    {
-        uint8_t combined = buffer->getUInt8();
-        int kart_id = combined & 31;
-        if (kart_id == 31)
-            m_closest_kart = NULL;
-        else
-            m_closest_kart = World::getWorld()->getKart(kart_id);
-        m_animation_phase = AnimationPhase((combined >> 5) & 3);
-        m_discard_now = (combined >> 7) == 1;
-        m_discard_ticks = buffer->getUInt32();
-        m_swatter_animation_ticks = buffer->getUInt16();
-    }
-    else
-        m_discard_ticks = buffer->getUInt32();
-}   // restoreState
-
-// ----------------------------------------------------------------------------
-void Swatter::saveState(BareNetworkString* buffer) const
-{
-    buffer->addUInt16(m_bomb_remaining);
-    if (m_bomb_remaining == -1)
-    {
-        uint8_t combined =
-            m_closest_kart ? (uint8_t)m_closest_kart->getWorldKartId() : 31;
-        combined |= m_animation_phase << 5;
-        combined |= (m_discard_now ? (1 << 7) : 0);
-        buffer->addUInt8(combined).addUInt32(m_discard_ticks)
-            .addUInt16(m_swatter_animation_ticks);
-    }
-    else
-        buffer->addUInt32(m_discard_ticks);
-}   // saveState

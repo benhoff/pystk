@@ -19,19 +19,14 @@
 
 #include "graphics/camera_normal.hpp"
 
-#include "audio/sfx_manager.hpp"
 #include "config/stk_config.hpp"
-#include "config/user_config.hpp"
-#include "input/device_manager.hpp"
-#include "input/input_manager.hpp"
-#include "input/multitouch_device.hpp"
-#include "modes/soccer_world.hpp"
 #include "karts/abstract_kart.hpp"
 #include "karts/explosion_animation.hpp"
 #include "karts/kart.hpp"
 #include "karts/kart_properties.hpp"
 #include "karts/skidding.hpp"
 #include "tracks/track.hpp"
+#include "config/user_config.hpp"
 
 // ============================================================================
 /** Constructor for the normal camera. This is the only camera constructor
@@ -46,7 +41,7 @@ CameraNormal::CameraNormal(Camera::CameraType type,  int camera_index,
                            AbstractKart* kart) 
             : Camera(type, camera_index, kart), m_camera_offset(0, 0, -15.0f)
 {
-    m_distance = kart ? UserConfigParams::m_camera_distance : 1000.0f;
+    m_distance = 1000.0f;
     m_ambient_light = Track::getCurrentTrack()->getDefaultAmbientColor();
 
     // TODO: Put these values into a config file
@@ -65,7 +60,7 @@ CameraNormal::CameraNormal(Camera::CameraType type,  int camera_index,
 
     if (kart)
     {
-        btTransform btt = kart->getSmoothedTrans();
+        btTransform btt = kart->getTrans();
         m_kart_position = btt.getOrigin();
         m_kart_rotation = btt.getRotation();
     }
@@ -84,10 +79,10 @@ void CameraNormal::moveCamera(float dt, bool smooth, float cam_angle, float dist
     Kart *kart = dynamic_cast<Kart*>(m_kart);
     if (kart->isFlying())
     {
-        Vec3 vec3 = m_kart->getSmoothedXYZ() + Vec3(sinf(m_kart->getHeading()) * -4.0f,
+        Vec3 vec3 = m_kart->getXYZ() + Vec3(sinf(m_kart->getHeading()) * -4.0f,
             0.5f,
             cosf(m_kart->getHeading()) * -4.0f);
-        m_camera->setTarget(m_kart->getSmoothedXYZ().toIrrVector());
+        m_camera->setTarget(m_kart->getXYZ().toIrrVector());
         m_camera->setPosition(vec3.toIrrVector());
         return;
     }   // kart is flying
@@ -137,7 +132,7 @@ void CameraNormal::moveCamera(float dt, bool smooth, float cam_angle, float dist
             delta2 = 1;
     }
 
-    btTransform btt = m_kart->getSmoothedTrans();
+    btTransform btt = m_kart->getTrans();
     m_kart_position = btt.getOrigin();
     btQuaternion q1, q2;
     q1 = m_kart_rotation.normalized();
@@ -208,14 +203,6 @@ void CameraNormal::getCameraSettings(float *above_kart, float *cam_angle,
             *sideway             = -m_rotation_range*dampened_steer*0.5f;
             *smoothing           = UserConfigParams::m_camera_forward_smoothing;
             *cam_roll_angle      = 0.0f;
-            if (UserConfigParams::m_multitouch_controls == MULTITOUCH_CONTROLS_GYROSCOPE)
-            {
-                MultitouchDevice* device = input_manager->getDeviceManager()->getMultitouchDevice();
-                if (device)
-                {
-                    *cam_roll_angle = -device->getOrientation();
-                }
-            }
             break;
         }   // CM_FALLING
     case CM_REVERSE: // Same as CM_NORMAL except it looks backwards
@@ -226,14 +213,6 @@ void CameraNormal::getCameraSettings(float *above_kart, float *cam_angle,
             *distance   = 2.0f*m_distance;
             *smoothing  = false;
             *cam_roll_angle = 0.0f;
-            if (UserConfigParams::m_multitouch_controls == MULTITOUCH_CONTROLS_GYROSCOPE)
-            {
-                MultitouchDevice* device = input_manager->getDeviceManager()->getMultitouchDevice();
-                if (device)
-                {
-                    *cam_roll_angle = -device->getOrientation();
-                }
-            }
             break;
         }
     case CM_CLOSEUP: // Lower to the ground and closer to the kart
@@ -246,14 +225,6 @@ void CameraNormal::getCameraSettings(float *above_kart, float *cam_angle,
             *distance   = -0.5f*m_distance;
             *smoothing  = false;
             *cam_roll_angle = 0.0f;
-            if (UserConfigParams::m_multitouch_controls == MULTITOUCH_CONTROLS_GYROSCOPE)
-            {
-                MultitouchDevice* device = input_manager->getDeviceManager()->getMultitouchDevice();
-                if (device)
-                {
-                    *cam_roll_angle = -device->getOrientation();
-                }
-            }
             break;
         }
     case CM_LEADER_MODE:
@@ -266,29 +237,6 @@ void CameraNormal::getCameraSettings(float *above_kart, float *cam_angle,
             *cam_roll_angle = 0.0f;
             break;
         }
-    case CM_SPECTATOR_SOCCER:
-        {
-            *above_kart = 0.0f;
-            *cam_angle  = UserConfigParams::m_spectator_camera_angle*DEGREE_TO_RAD;
-            *sideway    = 0;
-            *distance   = -UserConfigParams::m_spectator_camera_distance;
-            *smoothing  = true;
-            *cam_roll_angle = 0.0f;
-            break;
-        }
-    case CM_SPECTATOR_TOP_VIEW:
-        {
-            *above_kart = 0.0f;
-            *cam_angle  = 0;
-            *sideway    = 0;
-            *distance   = UserConfigParams::m_spectator_camera_distance;
-            *smoothing  = true;
-            *cam_roll_angle = 0.0f;
-            break;
-        }
-    case CM_SIMPLE_REPLAY:
-        // TODO: Implement
-        break;
     }
 
 }   // getCameraSettings
@@ -321,7 +269,7 @@ void CameraNormal::update(float dt)
         // above the kart).
         // Note: this code is replicated from smoothMoveCamera so that
         // the camera keeps on pointing to the same spot.
-        core::vector3df current_target = (m_kart->getSmoothedXYZ().toIrrVector()
+        core::vector3df current_target = (m_kart->getXYZ().toIrrVector()
                                        +  core::vector3df(0, above_kart, 0));
         m_camera->setTarget(current_target);
     }
@@ -348,45 +296,21 @@ void CameraNormal::positionCamera(float dt, float above_kart, float cam_angle,
                            float cam_roll_angle)
 {
     Vec3 wanted_position;
-    Vec3 wanted_target = m_kart->getSmoothedTrans()(Vec3(0, above_kart, 0));
+    Vec3 wanted_target = m_kart->getTrans()(Vec3(0, above_kart, 0));
 
     float tan_up = tanf(cam_angle);
 
     Camera::Mode mode = getMode();
-    if (UserConfigParams::m_reverse_look_use_soccer_cam && getMode() == CM_REVERSE) mode=CM_SPECTATOR_SOCCER;
 
     switch(mode)
     {
-    case CM_SPECTATOR_SOCCER:
-        {
-            SoccerWorld *soccer_world = dynamic_cast<SoccerWorld*> (World::getWorld());
-            if (soccer_world)
-            {
-                Vec3 ball_pos = soccer_world->getBallPosition();
-                Vec3 to_target=(ball_pos-wanted_target);
-                wanted_position = wanted_target + Vec3(0,  fabsf(distance)*tan_up+above_kart, 0) + (to_target.normalize() * distance * (getMode() == CM_REVERSE ? -1:1));
-                m_camera->setPosition(wanted_position.toIrrVector());
-                m_camera->setTarget(wanted_target.toIrrVector());
-                return;
-            }
-            break;
-        }
-    case CM_SPECTATOR_TOP_VIEW:
-        {
-            SoccerWorld *soccer_world = dynamic_cast<SoccerWorld*> (World::getWorld());
-            if (soccer_world) wanted_target = soccer_world->getBallPosition();
-            wanted_position = wanted_target + Vec3(0,  distance+above_kart, 0);
-            m_camera->setPosition(wanted_position.toIrrVector());
-            m_camera->setTarget(wanted_target.toIrrVector());
-            return;
-        }
     default: break;
     }
 
     Vec3 relative_position(side_way,
                            fabsf(distance)*tan_up+above_kart,
                            distance);
-    btTransform t=m_kart->getSmoothedTrans();
+    btTransform t=m_kart->getTrans();
     if(stk_config->m_camera_follow_skid &&
         m_kart->getSkidding()->getVisualSkidRotation()!=0)
     {
@@ -407,19 +331,13 @@ void CameraNormal::positionCamera(float dt, float above_kart, float cam_angle,
             m_camera->setPosition(wanted_position.toIrrVector());
         m_camera->setTarget(wanted_target.toIrrVector());
 
-        if (RaceManager::get()->getNumLocalPlayers() < 2)
-        {
-            SFXManager::get()->positionListener(m_camera->getPosition(),
-                                      wanted_target - m_camera->getPosition(),
-                                      Vec3(0, 1, 0));
-        }
     }
 
     Kart *kart = dynamic_cast<Kart*>(m_kart);
     if (kart && !kart->isFlying())
     {
         // Rotate the up vector (0,1,0) by the rotation ... which is just column 1
-        Vec3 up = m_kart->getSmoothedTrans().getBasis().getColumn(1);
+        Vec3 up = m_kart->getTrans().getBasis().getColumn(1);
         float f = 0.04f;  // weight for new up vector to reduce shaking
         m_camera->setUpVector(        f  * up.toIrrVector() +
                               (1.0f - f) * m_camera->getUpVector());

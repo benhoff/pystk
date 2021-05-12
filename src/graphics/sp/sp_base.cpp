@@ -42,7 +42,6 @@
 #include "graphics/sp/sp_texture.hpp"
 #include "graphics/sp/sp_texture_manager.hpp"
 #include "graphics/sp/sp_uniform_assigner.hpp"
-#include "guiengine/engine.hpp"
 #include "tracks/track.hpp"
 #include "utils/log.hpp"
 #include "utils/helpers.hpp"
@@ -417,10 +416,6 @@ void loadShaders()
 // ----------------------------------------------------------------------------
 void resetEmptyFogColor()
 {
-    if (GUIEngine::isNoGraphics())
-    {
-        return;
-    }
     glBindBuffer(GL_UNIFORM_BUFFER, sp_fog_ubo);
     std::vector<float> fog_empty;
     fog_empty.resize(8, 0.0f);
@@ -431,11 +426,6 @@ void resetEmptyFogColor()
 // ----------------------------------------------------------------------------
 void init()
 {
-    if (GUIEngine::isNoGraphics())
-    {
-        return;
-    }
-
     initSkinning();
     for (unsigned i = 0; i < MAX_PLAYER_COUNT; i++)
     {
@@ -592,7 +582,6 @@ void init()
 void destroy()
 {
     g_dy_dc.clear();
-    SPTextureManager::get()->stopThreads();
     SPShaderManager::destroy();
     g_glow_shader = NULL;
     g_normal_visualizer = NULL;
@@ -603,7 +592,8 @@ void destroy()
         CVS->isARBBufferStorageUsable())
     {
         glBindBuffer(GL_TEXTURE_BUFFER, g_skinning_buf);
-        glUnmapBuffer(GL_TEXTURE_BUFFER);
+        if (g_joint_ptr)
+            glUnmapBuffer(GL_TEXTURE_BUFFER);
         glBindBuffer(GL_TEXTURE_BUFFER, 0);
     }
     glDeleteBuffers(1, &g_skinning_buf);
@@ -796,17 +786,17 @@ void addObject(SPMeshNode* node)
     {
         return;
     }
-
-    if (node->getSPM() == NULL)
+    SPMesh * mesh = node->getSPM();
+    if (mesh == NULL)
     {
         return;
     }
 
     const core::matrix4& model_matrix = node->getAbsoluteTransformation();
     bool added_for_skinning = false;
-    for (unsigned m = 0; m < node->getSPM()->getMeshBufferCount(); m++)
+    for (unsigned m = 0; m < mesh->getMeshBufferCount(); m++)
     {
-        SPMeshBuffer* mb = node->getSPM()->getSPMeshBuffer(m);
+        SPMeshBuffer* mb = mesh->getSPMeshBuffer(m);
         SPShader* shader = node->getShader(m);
         if (shader == NULL)
         {
@@ -890,7 +880,7 @@ void addObject(SPMeshNode* node)
         SPInstancedData id = SPInstancedData
             (node->getAbsoluteTransformation(), node->getTextureMatrix(m)[0],
             node->getTextureMatrix(m)[1], hue,
-            (short)node->getSkinningOffset());
+            (short)node->getSkinningOffset(), node->objectId());
 
         for (int dc_type = 0; dc_type < (handle_shadow ? 5 : 1); dc_type++)
         {
@@ -1094,7 +1084,6 @@ void handleDynamicDrawCall()
 void updateModelMatrix()
 {
     // Make sure all textures (with handles) are loaded
-    SPTextureManager::get()->checkForGLCommand(true/*before_scene*/);
     if (!sp_culling)
     {
         return;
@@ -1212,6 +1201,7 @@ void uploadSkinningMatrices()
     {
         glUnmapBuffer(GL_TEXTURE_BUFFER);
         glBindBuffer(GL_TEXTURE_BUFFER, 0);
+        g_joint_ptr = NULL;
     }
 #endif
 }
@@ -1327,6 +1317,18 @@ void draw(RenderPass rp, DrawCallType dct)
         if (!p.first->hasShader(rp))
         {
             continue;
+        }
+        // Only enable used color attachments (without this garbage will be
+        // written into unused attachments)
+        GLint fbo;
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &fbo);
+        if (fbo) {
+            std::vector<GLenum> dbuf;
+            for( auto o: p.first->output(rp) ) {
+                if (o.location >= dbuf.size()) dbuf.resize(o.location+1, GL_NONE);
+                dbuf[o.location] = GL_COLOR_ATTACHMENT0+o.location;
+            }
+            glDrawBuffers(dbuf.size(), dbuf.data());
         }
         p.first->use(rp);
         static std::vector<SPUniformAssigner*> shader_uniforms;

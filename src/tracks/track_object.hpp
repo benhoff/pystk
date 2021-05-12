@@ -118,7 +118,6 @@ public:
     virtual      ~TrackObject();
     virtual void update(float dt);
     virtual void updateGraphics(float dt);
-    virtual void resetAfterRewind();
     void move(const core::vector3df& xyz, const core::vector3df& hpr,
               const core::vector3df& scale, bool updateRigidBody,
               bool isAbsoluteCoord);
@@ -199,10 +198,6 @@ public:
     */
     TrackObjectPresentationParticles* getParticleEmitter() { return getPresentation<TrackObjectPresentationParticles>(); }
     /** Should only be used on sound emitter track objects.
-      * On the script side, the returned object is of type : @ref Scripting_SoundEmitter
-      */
-    TrackObjectPresentationSound* getSoundEmitter(){ return getPresentation<TrackObjectPresentationSound>(); }
-    /** Should only be used on sound emitter track objects.
     * On the script side, the returned object is of type : @ref Scripting_Light
     */
     TrackObjectPresentationLight* getLight() { return getPresentation<TrackObjectPresentationLight>(); }
@@ -239,9 +234,6 @@ public:
             return false;
         return m_parent_library->hasAnimatorRecursively();
     }
-    // ------------------------------------------------------------------------
-    void setPaused(bool mode){ m_animator->setPaused(mode); }
-    // ------------------------------------------------------------------------
     void setInitiallyVisible(bool val)           { m_initially_visible = val; }
     // ------------------------------------------------------------------------
     /** Returns if a kart can drive on this object. */
@@ -261,7 +253,7 @@ public:
     void movePhysicalBodyToGraphicalNode(const core::vector3df& xyz, const core::vector3df& hpr);
     // ------------------------------------------------------------------------
     bool joinToMainTrack();
-    // ------------------------------------------------------------------------
+    uint32_t objectID() const;
     TrackObject* cloneToChild();
     LEAK_CHECK()
 };   // TrackObject

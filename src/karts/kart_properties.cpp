@@ -18,11 +18,8 @@
 
 #include "karts/kart_properties.hpp"
 
-#include "audio/sfx_manager.hpp"
-#include "addons/addon.hpp"
-#include "audio/sfx_manager.hpp"
+// #include "addons/addon.hpp"
 #include "config/stk_config.hpp"
-#include "config/player_manager.hpp"
 #include "graphics/central_settings.hpp"
 #include "graphics/material_manager.hpp"
 #include "graphics/shader_files_manager.hpp"
@@ -41,7 +38,6 @@
 #include "utils/constants.hpp"
 #include "utils/log.hpp"
 #include "utils/string_utils.hpp"
-#include "utils/translation.hpp"
 
 #include <iostream>
 #include <stdexcept>
@@ -80,7 +76,6 @@ KartProperties::KartProperties(const std::string &filename)
     m_shadow_z_offset = 0.0f;
 
     m_groups.clear();
-    m_custom_sfx_id.resize(SFXManager::NUM_CUSTOMS);
 
     // Set all other values to undefined, so that it can later be tested
     // if everything is defined properly.
@@ -94,7 +89,6 @@ KartProperties::KartProperties(const std::string &filename)
     m_version                    = 0;
     m_color                      = video::SColor(255, 0, 0, 0);
     m_shape                      = 32;  // close enough to a circle.
-    m_engine_sfx_type            = "engine_small";
     m_nitro_min_consumption      = 64;
     // The default constructor for stk_config uses filename=""
     if (filename != "")
@@ -211,14 +205,6 @@ void KartProperties::load(const std::string &filename, const std::string &node)
 
     m_root  = StringUtils::getPath(filename)+"/";
     m_ident = StringUtils::getBasename(StringUtils::getPath(filename));
-    // If this is an addon kart, add "addon_" to the identifier - just in
-    // case that an addon kart has the same directory name (and therefore
-    // identifier) as an included kart.
-    if(Addon::isAddon(filename))
-    {
-        m_ident = Addon::createAddonId(m_ident);
-        m_is_addon = true;
-    }
 
     try
     {
@@ -357,7 +343,6 @@ void KartProperties::adjustForOnlineAddonKart(const KartProperties* source)
     m_shadow_material = source->m_shadow_material;
     m_icon_material = source->m_icon_material;
     m_minimap_icon = source->m_minimap_icon;
-    m_engine_sfx_type = source->m_engine_sfx_type;
     m_color = source->m_color;
 }  // adjustForOnlineAddonKart
 
@@ -455,78 +440,6 @@ void KartProperties::getAllData(const XMLNode * root)
     //TODO: listed as an attribute in the xml file after wheel-radius
     //TODO: same goes for their rear equivalents
 
-
-    if(const XMLNode *sounds_node= root->getNode("sounds"))
-    {
-        std::string s;
-        sounds_node->get("engine", &s);
-        if (s == "custom")
-        {
-            sounds_node->get("file", &s);
-            std::string full_path = m_root + s;
-            if (file_manager->fileExists(full_path) &&
-                StringUtils::getExtension(s) == "ogg")
-            {
-                m_engine_sfx_type = m_ident + "_engine";
-                // Default values for engine sound if not found
-                float rolloff = 0.2;
-                float max_dist = 300.0f;
-                float gain = 0.4;
-                sounds_node->get("rolloff", &rolloff);
-                sounds_node->get("max_dist", &max_dist);
-                sounds_node->get("volume", &gain);
-                SFXManager::get()->addSingleSfx(m_engine_sfx_type, full_path,
-                    true/*positional*/, rolloff, max_dist, gain);
-            }
-            else
-            {
-                Log::error("[KartProperties]",
-                    "Kart '%s' has an invalid custom engine file '%s'.",
-                    m_name.c_str(), full_path.c_str());
-                m_engine_sfx_type = "engine_small";
-            }
-        }
-        else if (s == "large") m_engine_sfx_type = "engine_large";
-        else if (s == "small") m_engine_sfx_type = "engine_small";
-        else
-        {
-            if (SFXManager::get()->soundExist(s))
-            {
-                m_engine_sfx_type = s;
-            }
-            else
-            {
-                Log::error("[KartProperties]",
-                           "Kart '%s' has an invalid engine '%s'.",
-                           m_name.c_str(), s.c_str());
-                m_engine_sfx_type = "engine_small";
-            }
-        }
-
-#ifdef WILL_BE_ENABLED_ONCE_DONE_PROPERLY
-        // Load custom kart SFX files (TODO: enable back when it's implemented properly)
-        for (int i = 0; i < SFXManager::NUM_CUSTOMS; i++)
-        {
-            std::string tempFile;
-            // Get filename associated with each custom sfx tag in sfx config
-            if (sounds_node->get(SFXManager::get()->getCustomTagName(i), tempFile))
-            {
-                // determine absolute filename
-                // FIXME: will not work with add-on packs (is data dir the same)?
-                tempFile = file_manager->getKartFile(tempFile, getIdent());
-
-                // Create sfx in sfx manager and store id
-                m_custom_sfx_id[i] = SFXManager::get()->addSingleSfx(tempFile, 1, 0.2f,1.0f);
-            }
-            else
-            {
-                // if there is no filename associated with a given tag
-                m_custom_sfx_id[i] = -1;
-            }   // if custom sound
-        }   // for i<SFXManager::NUM_CUSTOMS
-#endif
-    }   // if sounds-node exist
-
     if(m_kart_model)
         m_kart_model->loadInfo(*root);
 }   // getAllData
@@ -561,17 +474,7 @@ void KartProperties::checkAllSet(const std::string &filename)
 // ----------------------------------------------------------------------------
 bool KartProperties::operator<(const KartProperties &other) const
 {
-    PlayerProfile *p = PlayerManager::getCurrentPlayer();
-    bool this_is_locked = p->isLocked(getIdent());
-    bool other_is_locked = p->isLocked(other.getIdent());
-    if (this_is_locked == other_is_locked)
-    {
-        return getName() < other.getName();
-    }
-    else
-        return other_is_locked;
-
-    return true;
+    return getName() < other.getName();
 }  // operator<
 
 // ----------------------------------------------------------------------------
@@ -624,7 +527,7 @@ float KartProperties::getAccelerationEfficiency() const
 /** Returns the name of this kart. */
 core::stringw KartProperties::getName() const
 {
-    return _(m_name.c_str());
+    return m_name.c_str();
 }   // getName
 
 // ----------------------------------------------------------------------------

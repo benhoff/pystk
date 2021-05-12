@@ -27,9 +27,7 @@
 #include <set>
 
 class AbstractKart;
-class BareNetworkString;
 class ItemState;
-class SFXBase;
 
 /**
   * \ingroup items
@@ -37,9 +35,6 @@ class SFXBase;
 class Powerup : public NoCopy
 {
 private:
-    /** Sound effect that is being played. */
-    SFXBase                    *m_sound_use;
-
     /** The powerup type. */
     PowerupManager::PowerupType m_type;
 
@@ -49,19 +44,14 @@ private:
     /** The owner (kart) of this powerup. */
     AbstractKart*               m_kart;
 
-    std::set<int>               m_played_sound_ticks;
-
 public:
                     Powerup      (AbstractKart* kart_);
                    ~Powerup      ();
     void            set          (PowerupManager::PowerupType _type, int n=1);
     void            reset        ();
     Material*       getIcon      () const;
-    void            adjustSound  ();
     void            use          ();
     void            hitBonusBox (const ItemState &item);
-    void            saveState(BareNetworkString *buffer) const;
-    void            rewindTo(BareNetworkString *buffer);
     void            update(int ticks);
 
     /** Returns the number of powerups. */

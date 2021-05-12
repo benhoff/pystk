@@ -30,9 +30,14 @@
 #include "CIrrDeviceLinux.h"
 #endif
 
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
-#include "CIrrDeviceSDL.h"
+#ifdef _IRR_COMPILE_WITH_OFF_SCREEN_DEVICE_
+#include "CIrrDeviceOffScreen.h"
 #endif
+
+#ifdef _IRR_COMPILE_WITH_OFF_SCREEN_OSX_DEVICE_
+#include "MacOSX/CIrrDeviceOffScreenMacOSX.h"
+#endif
+
 
 #ifdef SERVER_ONLY
 #include "CIrrDeviceServer.h"
@@ -96,16 +101,16 @@ namespace irr
 			device_type = EIDT_WAYLAND;
 		}
 #endif
+#if defined(_IRR_COMPILE_WITH_OFF_SCREEN_DEVICE_) || defined(_IRR_COMPILE_WITH_OFF_SCREEN_OSX_DEVICE_) || defined(_IRR_COMPILE_WITH_WINDOWS_DEVICE_)
+		if (strcmp(irr_device_type, "offscreen") == 0)
+		{
+			device_type = EIDT_OFFSCREEN;
+		}
+#endif
 #ifdef _IRR_COMPILE_WITH_X11_DEVICE_
 		if (strcmp(irr_device_type, "x11") == 0)
 		{
 			device_type = EIDT_X11;
-		}
-#endif
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
-		if (strcmp(irr_device_type, "sdl") == 0)
-		{
-			device_type = EIDT_SDL;
 		}
 #endif
 #ifdef _IRR_COMPILE_WITH_ANDROID_DEVICE_
@@ -159,15 +164,25 @@ namespace irr
 			dev = new CIrrDeviceLinux(creation_params);
 #endif
 
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
-		if (creation_params.DeviceType == EIDT_SDL || (!dev && creation_params.DeviceType == EIDT_BEST))
-			dev = new CIrrDeviceSDL(creation_params);
-#endif
 
 #ifdef _IRR_COMPILE_WITH_ANDROID_DEVICE_
 		if (creation_params.DeviceType == EIDT_ANDROID || (!dev && creation_params.DeviceType == EIDT_BEST))
 			dev = new CIrrDeviceAndroid(creation_params);
 #endif
+
+#ifdef _IRR_COMPILE_WITH_OFF_SCREEN_DEVICE_
+		if (creation_params.DeviceType == EIDT_OFFSCREEN || (!dev && creation_params.DeviceType == EIDT_BEST))
+			dev = new CIrrDeviceOffScreen(creation_params);
+#endif
+#ifdef _IRR_COMPILE_WITH_OFF_SCREEN_OSX_DEVICE_
+		if (creation_params.DeviceType == EIDT_OFFSCREEN || (!dev && creation_params.DeviceType == EIDT_BEST))
+			dev = new CIrrDeviceOffScreenMacOSX(creation_params);
+#endif
+#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+		if (creation_params.DeviceType == EIDT_OFFSCREEN || (!dev && creation_params.DeviceType == EIDT_BEST))
+			dev = new CIrrDeviceWin32(creation_params, true);
+#endif
+
 
 		if (dev && !dev->getVideoDriver() && creation_params.DriverType != video::EDT_NULL)
 		{

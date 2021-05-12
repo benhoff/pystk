@@ -44,11 +44,9 @@ class HitEffect;
 class Item;
 class ItemState;
 class KartGFX;
-class KartRewinder;
 class MaxSpeed;
 class ParticleEmitter;
 class ParticleKind;
-class SFXBase;
 class Shadow;
 class Skidding;
 class SkidMarks;
@@ -68,9 +66,6 @@ class TerrainInfo;
 class Kart : public AbstractKart
 {
     friend class Skidding;
-private:
-    int m_network_finish_check_ticks;
-    int m_network_confirmed_finish_ticks;
 protected:
     /** Offset of the graphical kart chassis from the physical chassis. */
     float m_graphical_y_offset;
@@ -239,54 +234,29 @@ protected:
     /** The current speed (i.e. length of velocity vector) of this kart. */
     float         m_speed;
 
-    /** For smoothing engine sound**/
-    float         m_last_factor_engine_sound;
-
     /** For changeKart**/
     float         m_default_suspension_force;
 
     /** Reset position. */
     btTransform  m_reset_transform;
 
-    std::vector<SFXBase*> m_custom_sounds;
     int m_emitter_id = 0;
     static const int EMITTER_COUNT = 3;
-    SFXBase      *m_emitters[EMITTER_COUNT];
-    SFXBase      *m_engine_sound;
-    /** Sound to be played depending on terrain. */
-    SFXBase      *m_terrain_sound;
 
     /** The material for which the last sound effect was played. */
-    const Material *m_last_sound_material;
-
-    SFXBase      *m_nitro_sound;
-    /** A pointer to the previous terrain sound needs to be saved so that an
-     *  'older' sfx can be finished and an abrupt end of the sfx is avoided. */
-    SFXBase      *m_previous_terrain_sound;
-    SFXBase      *m_skid_sound;
-    SFXBuffer    *m_horn_sound;
-    static const int CRASH_SOUND_COUNT = 3;
-    SFXBuffer    *m_crash_sounds[CRASH_SOUND_COUNT];
-    SFXBuffer    *m_goo_sound;
-    SFXBuffer    *m_boing_sound;
-    /* Used to avoid re-play the sound during rewinding, if it's happening at
-     * the same ticks. */
     int          m_ticks_last_crash;
     int          m_ticks_last_zipper;
     RaceManager::KartType m_type;
 
     void          updatePhysics(int ticks);
-    void          handleMaterialSFX();
     void          handleMaterialGFX(float dt);
     void          updateFlying();
     void          updateSliding();
     void          updateEnginePowerAndBrakes(int ticks);
-    void          updateEngineSFX(float dt);
     void          updateSpeed();
     void          updateNitro(int ticks);
     float         applyAirFriction (float engine_power);
     float         getActualWheelForce();
-    void          playCrashSFX(const Material* m, AbstractKart *k);
     void          loadData(RaceManager::KartType type, bool animatedModel);
     void          updateWeight();
 public:
@@ -305,19 +275,14 @@ public:
     virtual void   flyUp() OVERRIDE;
     virtual void   flyDown() OVERRIDE;
 
-    virtual void   startEngineSFX   () OVERRIDE;
     virtual void  collectedItem(ItemState *item) OVERRIDE;
-    virtual float getStartupBoostFromStartTicks(int ticks) const OVERRIDE;
-    virtual float getStartupBoost() const OVERRIDE  { return m_startup_boost; }
-    virtual void setStartupBoost(float val) OVERRIDE { m_startup_boost = val; }
     virtual const Material *getMaterial() const OVERRIDE;
     virtual const Material *getLastMaterial() const OVERRIDE;
     /** Returns the pitch of the terrain depending on the heading. */
     virtual float getTerrainPitch(float heading) const OVERRIDE;
 
     virtual void   reset            () OVERRIDE;
-    virtual void   handleZipper     (const Material *m=NULL,
-                                     bool play_sound=false) OVERRIDE;
+    virtual void   handleZipper     (const Material *m=NULL) OVERRIDE;
     virtual bool   setSquash        (float time, float slowdown) OVERRIDE;
             void   setSquashGraphics();
     virtual void   unsetSquash      () OVERRIDE;
@@ -331,8 +296,6 @@ public:
     virtual void   beep             () OVERRIDE;
     virtual void   showZipperFire   () OVERRIDE;
 
-
-    virtual bool   playCustomSFX    (unsigned int type) OVERRIDE;
     virtual void   setController(Controller *controller) OVERRIDE;
     virtual void   setXYZ(const Vec3& a) OVERRIDE;
     virtual void changeKart(const std::string& new_ident,
@@ -573,13 +536,6 @@ public:
     /** Set this kart race result. */
     void setRaceResult();
     // ----------------------------------------------------------------------------------------
-    /** Returns whether this kart is a ghost (replay) kart. */
-    virtual bool isGhostKart() const OVERRIDE { return false;  }
-    // ----------------------------------------------------------------------------------------
-    SFXBase* getNextEmitter();
-    // ----------------------------------------------------------------------------------------
-    virtual void playSound(SFXBuffer* buffer) OVERRIDE;
-    // ----------------------------------------------------------------------------------------
     virtual bool isVisible() const OVERRIDE;
     // ----------------------------------------------------------------------------------------
     /** Shows the star effect for a certain time. */
@@ -587,12 +543,6 @@ public:
     // ----------------------------------------------------------------------------------------
     virtual Stars* getStarsEffect() const OVERRIDE
                                                { return m_stars_effect.get(); }
-    // ------------------------------------------------------------------------
-    /** Return the confirmed finish ticks (sent by the server)
-     *  indicating that this kart has really finished the race. */
-    int getNetworkConfirmedFinishTicks() const OVERRIDE
-                                   { return m_network_confirmed_finish_ticks; }
-
 };   // Kart
 
 

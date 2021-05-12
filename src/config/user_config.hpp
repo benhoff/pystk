@@ -53,10 +53,10 @@ using irr::core::stringw;
 #include "utils/ptr_vector.hpp"
 #include "utils/time.hpp"
 
-class PlayerProfile;
 class SavedGrandPrix;
 class XMLNode;
 class UTFWriter;
+
 
 /**
  *  The base of a set of small utilities to enable quickly adding/removing
@@ -76,6 +76,7 @@ public:
     virtual void findYourDataInAChildOf(const XMLNode* node) = 0;
     virtual void findYourDataInAnAttributeOf(const XMLNode* node) = 0;
     virtual irr::core::stringc toString() const = 0;
+
 };   // UserConfigParam
 
 // ============================================================================
@@ -356,6 +357,7 @@ public:
                               { m_value = (float)v; return m_value; }
 };   // FloatUserConfigParam
 
+
 // ============================================================================
 enum AnimType {ANIMS_NONE         = 0,
                ANIMS_PLAYERS_ONLY = 1,
@@ -379,11 +381,18 @@ enum MultitouchControls
     MULTITOUCH_CONTROLS_GYROSCOPE = 3,
 };
 
+
+
 /** Using X-macros for setting-possible values is not very pretty, but it's a
  *  no-maintenance case :
  *  when you want to add a new parameter, just add one signle line below and
  *  everything else automagically works (including default value, saving to
  *  file, loading from file)
+ */
+
+// ============================================================================
+/** \brief Contains all parameters that are stored in the user's config file
+ *  \ingroup config
  */
 
 #ifndef PARAM_PREFIX
@@ -394,14 +403,8 @@ enum MultitouchControls
 #define PARAM_DEFAULT(X)
 #endif
 
-// ============================================================================
-/** \brief Contains all parameters that are stored in the user's config file
- *  \ingroup config
- */
-namespace UserConfigParams
-{
-
-    // ---- Audio
+namespace UserConfigParams {
+       // ---- Audio
     PARAM_PREFIX GroupUserConfigParam        m_audio_group
             PARAM_DEFAULT( GroupUserConfigParam("Audio", "Audio Settings") );
 
@@ -1148,15 +1151,11 @@ namespace UserConfigParams
     bool   logGUI   ();
     /** Returns true if the user want additional messages related to addons. */
     bool   logAddons();
-    /** Returns true if the user want additional debug info for flyables */
-    bool   logFlyable();
-    /** Returns true if the user want additional messages for general items. */
-    bool   logMisc  ();
-
 
 }
 #undef PARAM_PREFIX
 #undef PARAM_SUFFIX
+
 
 // ============================================================================
 /**

@@ -22,8 +22,6 @@
 #include "graphics/material.hpp"
 #include "graphics/material_manager.hpp"
 #include "graphics/sp/sp_base.hpp"
-#include "guiengine/engine.hpp"
-#include "guiengine/skin.hpp"
 #include "io/file_manager.hpp"
 
 AttachmentManager *attachment_manager = 0;
@@ -68,14 +66,16 @@ AttachmentManager::~AttachmentManager()
     for(int i=0; iat[i].attachment!=Attachment::ATTACH_MAX; i++)
     {
         scene::IMesh *mesh = m_attachments[iat[i].attachment];
-        mesh->drop();
-        // If the count is 1, the only reference is in the
-        // irrlicht mesh cache, so the mesh can be removed
-        // from the cache.
-        // Note that this test is necessary, since some meshes
-        // are also used in powerup_manager!!!
-        if(mesh->getReferenceCount()==1)
-            irr_driver->removeMeshFromCache(mesh);
+        if (mesh) {
+            mesh->drop();
+            // If the count is 1, the only reference is in the
+            // irrlicht mesh cache, so the mesh can be removed
+            // from the cache.
+            // Note that this test is necessary, since some meshes
+            // are also used in powerup_manager!!!
+            if(mesh->getReferenceCount()==1)
+                irr_driver->removeMeshFromCache(mesh);
+        }
     }
 }   // ~AttachmentManager
 
@@ -91,18 +91,6 @@ void AttachmentManager::loadModels()
         SP::uploadSPM(mesh);
 #endif
         m_attachments[iat[i].attachment] = mesh;
-        if(iat[i].icon_file)
-        {
-            std::string full_icon_path     =
-                GUIEngine::getSkin()->getThemedIcon(std::string("gui/icons/")
-                                                    + iat[i].icon_file);
-            m_all_icons[iat[i].attachment] =
-                material_manager->getMaterial(full_icon_path,
-                                              /* full_path */     true,
-                                              /*make_permanent */ true);
-        }
-        if (GUIEngine::isNoGraphics())
-            mesh->freeMeshVertexBuffer();
     }   // for
 }   // reInit
 

@@ -18,8 +18,6 @@
 #ifndef PROFILER_HPP
 #define PROFILER_HPP
 
-#include "utils/synchronised.hpp"
-
 #include <irrlicht.h>
 
 #include <assert.h>
@@ -32,6 +30,7 @@
 #include <streambuf>
 #include <string>
 #include <vector>
+#include <thread>
 
 enum QueryPerf
 {
@@ -66,7 +65,7 @@ extern Profiler profiler;
 
 double getTimeMilliseconds();
 
-#define ENABLE_PROFILER
+// #define ENABLE_PROFILER
 
 #ifdef ENABLE_PROFILER
     #define PROFILER_PUSH_CPU_MARKER(name, r, g, b) \
@@ -224,6 +223,9 @@ private:
      *  is the thread id. */
     std::vector< ThreadData> m_all_threads_data;
 
+    /** A mapping of thread_t pointers to a unique integer (starting from 0).*/
+    std::vector<std::thread::id> m_thread_mapping;
+
     /** Buffer for the GPU times (in ms). */
     std::vector<int> m_gpu_times;
 
@@ -237,7 +239,7 @@ private:
      *  instance (since we need to avoid that a synch is done which changes
      *  the current frame while another threaded uses this variable, or
      *  while a new thread is added. */
-    Synchronised<bool> m_lock;
+    bool m_lock;
 
     /** True if the circular buffer has wrapped around. */
     bool m_has_wrapped_around;
@@ -282,8 +284,6 @@ public:
     void     popCPUMarker();
     void     toggleStatus(); 
     void     synchronizeFrame();
-    void     draw();
-    void     onClick(const core::vector2di& mouse_pos);
     void     writeToFile();
 
     // ------------------------------------------------------------------------

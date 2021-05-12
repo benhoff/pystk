@@ -26,7 +26,7 @@
 #include "karts/kart_model.hpp"
 #include "karts/kart_properties.hpp"
 #include "modes/world.hpp"
-#include "network/network_string.hpp"
+
 #include "tracks/check_cannon.hpp"
 #include "tracks/check_manager.hpp"
 #include "tracks/track.hpp"
@@ -59,19 +59,6 @@ CannonAnimation::CannonAnimation(AbstractKart* kart, CheckCannon* cc,
 }   // CannonAnimation
 
 // ----------------------------------------------------------------------------
-/** The constructor for the cannon animation for kart during rewind.
- */
-CannonAnimation::CannonAnimation(AbstractKart* kart, BareNetworkString* buffer)
-               : AbstractKartAnimation(kart, "CannonAnimation")
-{
-    restoreBasicState(buffer);
-    m_check_cannon = NULL;
-    m_flyable = NULL;
-    m_skid_rot = 0;
-    restoreData(buffer);
-}   // CannonAnimation
-
-// ----------------------------------------------------------------------------
 /** Constructor for a flyable. It sets the kart data to NULL.
  */
 CannonAnimation::CannonAnimation(Flyable* flyable, CheckCannon* cc)
@@ -85,19 +72,6 @@ CannonAnimation::CannonAnimation(Flyable* flyable, CheckCannon* cc)
     init(cc->getIpo()->clone(), cc->getLeftPoint(), cc->getRightPoint(),
         cc->getTargetLeft(), cc->getTargetRight(), /*skid_rot*/0);
 }   // CannonAnimation(Flyable*...)
-
-// ----------------------------------------------------------------------------
-/** The constructor for the cannon animation for flyable during rewind.
- */
-CannonAnimation::CannonAnimation(Flyable* flyable, BareNetworkString* buffer)
-               : AbstractKartAnimation(NULL, "CannonAnimation")
-{
-    m_flyable = flyable;
-    restoreBasicState(buffer);
-    m_check_cannon = NULL;
-    m_skid_rot = 0;
-    restoreData(buffer);
-}   // CannonAnimation
 
 // ----------------------------------------------------------------------------
 /** Common initialisation for kart-based and flyable-based animations.
@@ -355,90 +329,3 @@ void CannonAnimation::update(int ticks)
 
     AbstractKartAnimation::update(ticks);
 }   // update
-
-// ----------------------------------------------------------------------------
-void CannonAnimation::saveState(BareNetworkString* buffer)
-{
-    AbstractKartAnimation::saveState(buffer);
-    buffer->addUInt8((uint8_t)m_check_cannon->getIndex());
-    // Flyable only use Y in m_delta
-    if (m_kart)
-    {
-        buffer->addFloat(m_skid_rot).addFloat(m_fraction_of_line)
-        .addUInt32(m_current_rotation);
-    }
-    else
-        buffer->addFloat(m_delta.y());
-}   // saveState
-
-// ----------------------------------------------------------------------------
-void CannonAnimation::restoreState(BareNetworkString* buffer)
-{
-    AbstractKartAnimation::restoreState(buffer);
-    restoreData(buffer);
-}   // restoreState
-
-// ----------------------------------------------------------------------------
-void CannonAnimation::restoreData(BareNetworkString* buffer)
-{
-    // Kart cannon has 2 floats + 1 compressed quaternion
-    // Flyable has 1 float (delta)
-    const int skipping_offset = m_kart ? 12 : 4;
-    class CannonCreationException : public KartAnimationCreationException
-    {
-    private:
-        const std::string m_error;
-
-        const int m_skipping_offset;
-    public:
-        CannonCreationException(const std::string& error, int skipping_offset)
-            : m_error(error), m_skipping_offset(skipping_offset) {}
-        // --------------------------------------------------------------------
-        virtual int getSkippingOffset() const     { return m_skipping_offset; }
-        // --------------------------------------------------------------------
-        virtual const char* what() const throw()    { return m_error.c_str(); }
-    };
-
-    int cc_idx = buffer->getInt8();
-    CheckManager* cm = Track::getCurrentTrack()->getCheckManager();
-    if ((unsigned)cc_idx > cm->getCheckStructureCount())
-    {
-        throw CannonCreationException(
-            "Server has different check structure size.", skipping_offset);
-    }
-    CheckCannon* cc = dynamic_cast<CheckCannon*>
-        (cm->getCheckStructure(cc_idx));
-    if (!cc)
-    {
-        throw CannonCreationException(
-            "Server has different check cannon index.", skipping_offset);
-    }
-    float skid_rot = 0.0f;
-    float fraction_of_line = 0.0f;
-    uint32_t current_rotation = 0;
-    float delta = 0.0f;
-    if (m_kart)
-    {
-        skid_rot = buffer->getFloat();
-        fraction_of_line = buffer->getFloat();
-        current_rotation = buffer->getUInt32();
-    }
-    else
-        delta = buffer->getFloat();
-    if (m_check_cannon != cc || skid_rot != m_skid_rot)
-    {
-        // Re-init if different or undoing the destruction of check cannon
-        init(cc->getIpo()->clone(), cc->getLeftPoint(),
-            cc->getRightPoint(), cc->getTargetLeft(), cc->getTargetRight(),
-            skid_rot);
-        m_check_cannon = cc;
-        m_skid_rot = skid_rot;
-    }
-    if (m_kart)
-    {
-        m_fraction_of_line = fraction_of_line;
-        m_current_rotation = current_rotation;
-    }
-    else
-        m_delta.setY(delta);
-}   // restoreData

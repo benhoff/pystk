@@ -21,23 +21,19 @@
 
 #include "utils/singleton.hpp"
 #include <vector3d.h>
-
-class SFXBase;
+#include "utils/random_generator.hpp"
 
 class Weather : public AbstractSingleton<Weather>
 {
     float m_next_lightning;
     float m_lightning;
-
-    SFXBase* m_thunder_sound;
-    SFXBase* m_weather_sound;
+    RandomGenerator random;
 
 public:
              Weather();
     virtual ~Weather();
 
     void update(float dt);
-    void playSound();
     
     /** Set the flag that a lightning should be shown. */
     void startLightning() { m_lightning = 1.0f; }
